@@ -1418,3 +1418,20 @@ p {
     scroll-behavior: auto;
   }
   }
+/* ============================================================
+   NAV — Scrolled state (triggered by JS .is-scrolled class)
+============================================================ */
+.nav.is-scrolled {
+  background: rgba(10, 10, 15, 0.92);
+  border-bottom-color: var(--color-border);
+}
+
+/* ============================================================
+   TRENDING CHIP — Active / tap state (triggered by JS)
+============================================================ */
+.trend-chip.is-active {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: var(--color-accent-light);
+  color: var(--color-accent-light);
+  transform: scale(0.96);
+}
