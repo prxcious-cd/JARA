@@ -543,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
              CHANGE THIS
              Same redirect URL as above.
           ========================== */
-          emailRedirectTo: 'https://yourname.github.io/jara/auth/login.html',
+          emailRedirectTo: 'https://prxcious-cd.github.io/jara/auth/login.html',
         },
       });
 
