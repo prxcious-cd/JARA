@@ -428,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
              Replace with your actual GitHub Pages URL.
              Example: https://yourname.github.io/jara/auth/login.html
           ========================== */
-          emailRedirectTo: 'https://yourname.github.io/jara/auth/login.html',
+          emailRedirectTo: 'https://prxcious-cd.github.io/jara/auth/login.html',
         },
       });
 
