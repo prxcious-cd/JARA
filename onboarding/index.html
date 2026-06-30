@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Set up your JARA ∆ profile — Find What You Need On Campus." />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>Get Started — JARA ∆</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+
+  <!-- Onboarding styles -->
+  <link rel="stylesheet" href="../css/onboarding.css" />
+
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Shared Supabase client -->
+  <script src="../js/supabase-client.js"></script>
+</head>
+
+<body>
+
+  <!-- Background glow -->
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <!-- ==============================
+       TOP NAVIGATION
+       Shows logo and step progress bar.
+       Hidden on welcome and finish screens.
+  ============================== -->
+  <nav class="ob-nav" id="obNav" hidden>
+    <a href="../index.html" class="ob-nav__logo" aria-label="JARA home">
+      JARA <span class="ob-nav__logo-delta">∆</span>
+    </a>
+    <!-- Progress bar -->
+    <div class="ob-nav__progress" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" aria-label="Onboarding progress">
+      <div class="ob-nav__progress-track">
+        <div class="ob-nav__progress-fill" id="progressFill"></div>
+      </div>
+      <span class="ob-nav__progress-label" id="progressLabel">Step 1 of 4</span>
+    </div>
+  </nav>
+
+  <!-- ==============================
+       MAIN STAGE
+       Every step renders inside here.
+  ============================== -->
+  <main class="ob-stage" id="obStage">
+
+    <!-- ==================================================
+         STEP 0: WELCOME
+    ================================================== -->
+    <section class="ob-step ob-step--active" id="step0" data-step="0" aria-label="Welcome">
+      <div class="ob-step__inner ob-step__inner--centered">
+
+        <!-- Animated logo mark -->
+        <div class="welcome-mark" aria-hidden="true">
+          <div class="welcome-mark__ring welcome-mark__ring--1"></div>
+          <div class="welcome-mark__ring welcome-mark__ring--2"></div>
+          <span class="welcome-mark__delta">∆</span>
+        </div>
+
+        <h1 class="welcome-title">
+          Welcome to<br />
+          <span class="welcome-title__accent">JARA ∆</span>
+        </h1>
+        <p class="welcome-subtitle">
+          Let's personalise your experience.<br />
+          It only takes a minute.
+        </p>
+
+        <button class="btn-primary" id="welcomeBtn">
+          Get Started
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </button>
+
+        <p class="welcome-trust">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+          Your information is private and secure.
+        </p>
+
+      </div>
+    </section>
+
+
+    <!-- ==================================================
+         STEP 1: WHO ARE YOU?
+    ================================================== -->
+    <section class="ob-step" id="step1" data-step="1" aria-label="Choose account type" hidden>
+      <div class="ob-step__inner">
+
+        <div class="ob-step__header">
+          <p class="ob-step__eyebrow">Step 1 of 4</p>
+          <h2 class="ob-step__title">Who are you?</h2>
+          <p class="ob-step__subtitle">
+            Choose the option that best describes you.<br />
+            This shapes what you see on JARA.
+          </p>
+        </div>
+
+        <!-- Account type cards -->
+        <div class="type-grid" role="radiogroup" aria-label="Account type">
+
+          <button
+            class="type-card"
+            role="radio"
+            aria-checked="false"
+            data-type="student"
+            id="typeStudent"
+          >
+            <span class="type-card__icon" aria-hidden="true">🎓</span>
+            <strong class="type-card__name">Student</strong>
+            <span class="type-card__desc">I study at a school or university.</span>
+            <span class="type-card__check" aria-hidden="true">
+              <i class="fa-solid fa-check"></i>
+            </span>
+          </button>
+
+          <button
+            class="type-card"
+            role="radio"
+            aria-checked="false"
+            data-type="business"
+            id="typeBusiness"
+          >
+            <span class="type-card__icon" aria-hidden="true">🏪</span>
+            <strong class="type-card__name">Business</strong>
+            <span class="type-card__desc">I own or manage a business.</span>
+            <span class="type-card__check" aria-hidden="true">
+              <i class="fa-solid fa-check"></i>
+            </span>
+          </button>
+
+          <button
+            class="type-card"
+            role="radio"
+            aria-checked="false"
+            data-type="professional"
+            id="typeProfessional"
+          >
+            <span class="type-card__icon" aria-hidden="true">💼</span>
+            <strong class="type-card__name">Professional</strong>
+            <span class="type-card__desc">I provide skills or services.</span>
+            <span class="type-card__check" aria-hidden="true">
+              <i class="fa-solid fa-check"></i>
+            </span>
+          </button>
+
+        </div>
+
+        <!-- Error shown if user clicks Next without selecting -->
+        <p class="ob-inline-error" id="typeError" hidden>
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          Please choose an option to continue.
+        </p>
+
+        <div class="ob-step__actions">
+          <button class="btn-primary" id="step1Next">
+            Continue
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ==================================================
+         STEP 2: PROFILE DETAILS
+         Three different forms — only the matching one
+         is shown based on account type selection.
+    ================================================== -->
+    <section class="ob-step" id="step2" data-step="2" aria-label="Profile details" hidden>
+      <div class="ob-step__inner">
+
+        <div class="ob-step__header">
+          <p class="ob-step__eyebrow">Step 2 of 4</p>
+          <h2 class="ob-step__title" id="step2Title">Tell us about yourself</h2>
+          <p class="ob-step__subtitle" id="step2Subtitle">
+            This is what people will see on your profile.
+          </p>
+        </div>
+
+        <!-- Global alert for this step -->
+        <div class="ob-alert" id="step2Alert" role="alert" aria-live="polite" hidden>
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <span id="step2AlertText"></span>
+        </div>
+
+        <!-- ---- STUDENT FORM ---- -->
+        <form class="ob-form" id="formStudent" novalidate hidden>
+
+          <!-- Avatar upload -->
+          <div class="avatar-upload" id="avatarUploadStudent">
+            <button type="button" class="avatar-upload__trigger" id="avatarTriggerStudent" aria-label="Upload profile picture">
+              <span class="avatar-upload__preview" id="avatarPreviewStudent" aria-hidden="true">
+                <i class="fa-solid fa-camera"></i>
+              </span>
+              <span class="avatar-upload__label">Upload photo</span>
+            </button>
+            <input
+              type="file"
+              id="avatarFileStudent"
+              accept="image/jpeg,image/png,image/webp"
+              class="avatar-upload__input"
+              aria-label="Profile picture file input"
+            />
+            <p class="avatar-upload__hint">JPG, PNG or WebP · Max 5 MB</p>
+          </div>
+
+          <div class="ob-form__grid">
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="studentFullName">Full name <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-user" aria-hidden="true"></i>
+                <input class="field__input" type="text" id="studentFullName" placeholder="e.g. Adaeze Okonkwo" autocomplete="name" required />
+              </div>
+              <p class="field__error" id="studentFullNameError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="studentSchool">School / University <span class="field__required">*</span></label>
+              <div class="field__input-wrap field__input-wrap--select">
+                <i class="field__icon fa-solid fa-graduation-cap" aria-hidden="true"></i>
+                <select class="field__input field__select" id="studentSchool" required>
+                  <option value="" disabled selected>Select your school</option>
+                  <!-- Populated by JS from Supabase schools table -->
+                </select>
+                <i class="field__select-arrow fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </div>
+              <p class="field__error" id="studentSchoolError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="studentFaculty">Faculty</label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-building-columns" aria-hidden="true"></i>
+                <input class="field__input" type="text" id="studentFaculty" placeholder="e.g. Social Sciences" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="studentDepartment">Department</label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-book" aria-hidden="true"></i>
+                <input class="field__input" type="text" id="studentDepartment" placeholder="e.g. Economics" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="studentLevel">Level</label>
+              <div class="field__input-wrap field__input-wrap--select">
+                <i class="field__icon fa-solid fa-layer-group" aria-hidden="true"></i>
+                <select class="field__input field__select" id="studentLevel">
+                  <option value="" disabled selected>Select level</option>
+                  <option value="100">100 Level</option>
+                  <option value="200">200 Level</option>
+                  <option value="300">300 Level</option>
+                  <option value="400">400 Level</option>
+                  <option value="500">500 Level</option>
+                  <option value="600">600 Level</option>
+                  <option value="postgrad">Postgraduate</option>
+                  <option value="other">Other</option>
+                </select>
+                <i class="field__select-arrow fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="studentPhone">Phone number <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-phone" aria-hidden="true"></i>
+                <input class="field__input" type="tel" id="studentPhone" placeholder="08012345678" inputmode="tel" autocomplete="tel" required />
+              </div>
+              <p class="field__error" id="studentPhoneError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="studentWhatsapp">WhatsApp number <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-brands fa-whatsapp" aria-hidden="true"></i>
+                <input class="field__input" type="tel" id="studentWhatsapp" placeholder="08012345678" inputmode="tel" required />
+              </div>
+              <p class="field__error" id="studentWhatsappError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="studentBio">Bio <span class="field__hint">(optional)</span></label>
+              <textarea
+                class="field__input field__textarea"
+                id="studentBio"
+                placeholder="Tell people a little about yourself…"
+                rows="3"
+                maxlength="500"
+              ></textarea>
+              <p class="field__char-count"><span id="studentBioCount">0</span> / 500</p>
+            </div>
+
+          </div><!-- /ob-form__grid -->
+        </form>
+
+
+        <!-- ---- BUSINESS FORM ---- -->
+        <form class="ob-form" id="formBusiness" novalidate hidden>
+
+          <div class="avatar-upload" id="avatarUploadBusiness">
+            <button type="button" class="avatar-upload__trigger" id="avatarTriggerBusiness" aria-label="Upload business logo">
+              <span class="avatar-upload__preview" id="avatarPreviewBusiness" aria-hidden="true">
+                <i class="fa-solid fa-camera"></i>
+              </span>
+              <span class="avatar-upload__label">Upload logo</span>
+            </button>
+            <input
+              type="file"
+              id="avatarFileBusiness"
+              accept="image/jpeg,image/png,image/webp"
+              class="avatar-upload__input"
+              aria-label="Business logo file input"
+            />
+            <p class="avatar-upload__hint">JPG, PNG or WebP · Max 5 MB</p>
+          </div>
+
+          <div class="ob-form__grid">
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="businessName">Business name <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-store" aria-hidden="true"></i>
+                <input class="field__input" type="text" id="businessName" placeholder="e.g. Blessing's Kitchen" required />
+              </div>
+              <p class="field__error" id="businessNameError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="businessOwnerName">Owner / Manager name <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-user" aria-hidden="true"></i>
+                <input class="field__input" type="text" id="businessOwnerName" placeholder="Your full name" autocomplete="name" required />
+              </div>
+              <p class="field__error" id="businessOwnerNameError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="businessCategory">Business category <span class="field__required">*</span></label>
+              <div class="field__input-wrap field__input-wrap--select">
+                <i class="field__icon fa-solid fa-tag" aria-hidden="true"></i>
+                <select class="field__input field__select" id="businessCategory" required>
+                  <option value="" disabled selected>Select a category</option>
+                  <!-- Populated by JS from Supabase categories table -->
+                </select>
+                <i class="field__select-arrow fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </div>
+              <p class="field__error" id="businessCategoryError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="businessAddress">Business address</label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-location-dot" aria-hidden="true"></i>
+                <input class="field__input" type="text" id="businessAddress" placeholder="e.g. Block C, Student Union Building" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="businessCity">City <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-city" aria-hidden="true"></i>
+                <input class="field__input" type="text" id="businessCity" placeholder="e.g. Ede" required />
+              </div>
+              <p class="field__error" id="businessCityError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="businessState">State <span class="field__required">*</span></label>
+              <div class="field__input-wrap field__input-wrap--select">
+                <i class="field__icon fa-solid fa-map" aria-hidden="true"></i>
+                <select class="field__input field__select" id="businessState" required>
+                  <option value="" disabled selected>Select state</option>
+                  <!-- Populated by JS -->
+                </select>
+                <i class="field__select-arrow fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </div>
+              <p class="field__error" id="businessStateError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="businessPhone">Phone number <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-solid fa-phone" aria-hidden="true"></i>
+                <input class="field__input" type="tel" id="businessPhone" placeholder="08012345678" inputmode="tel" autocomplete="tel" required />
+              </div>
+              <p class="field__error" id="businessPhoneError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="businessWhatsapp">WhatsApp number <span class="field__required">*</span></label>
+              <div class="field__input-wrap">
+                <i class="field__icon fa-brands fa-whatsapp" aria-hidden="true"></i>
+                <input class="field__input" type="tel" id="businessWhatsapp" placeholder="08012345678" inputmode="tel" required />
+              </div>
+              <p class="field__error" id="businessWhatsappError" hidden><i class="fa-solid fa-triangle-exclamation"></i> <span></span></p>
+            </div>
+
+            <div class="field ob-form__field--full">
+              <label class="field__label" for="businessBio">Business description <span class="field__hint">(optional)</span></label>
+              <textarea
+                class="field__input field__textarea"
+                id="businessBio"
+                placeholder="Tell people what your business offers…"
+                rows="3"
+                maxlength="500"
+              ></textarea>
+              <p class="field__char-count"><span id="businessBioCount">0</span> / 500</p>
+            </div>
+
+          </div>
+        </form>
+
+
+        <!-- --Step 2 navigation -->
+        <div class="ob-step__actions ob-step__actions--split">
+          <button class="btn-ghost" id="step2Back">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            Back
+          </button>
+          <button class="btn-primary" id="step2Next">
+            Continue
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ==================================================
+         STEP 3: INTERESTS
+    ================================================== -->
+    <section class="ob-step" id="step3" data-step="3" aria-label="Choose your interests" hidden>
+      <div class="ob-step__inner">
+
+        <div class="ob-step__header">
+          <p class="ob-step__eyebrow">Step 3 of 4</p>
+          <h2 class="ob-step__title">What interests you?</h2>
+          <p class="ob-step__subtitle">
+            Select everything relevant. This helps JARA show you the right listings.
+          </p>
+        </div>
+
+        <!-- Interest chips — multi-select -->
+        <div
+          class="interests-grid"
+          id="interestsGrid"
+          role="group"
+          aria-label="Select your interests"
+        >
+          <!-- Chips generated by JS from the interests array in onboarding.js -->
+        </div>
+
+        <p class="ob-inline-error" id="interestsError" hidden>
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          Please select at least one interest.
+        </p>
+
+        <div class="ob-step__actions ob-step__actions--split">
+          <button class="btn-ghost" id="step3Back">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            Back
+          </button>
+          <button class="btn-primary" id="step3Next">
+            Continue
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ==================================================
+         STEP 4: FINISH
+    ================================================== -->
+    <section class="ob-step" id="step4" data-step="4" aria-label="Setup complete" hidden>
+      <div class="ob-step__inner ob-step__inner--centered">
+
+        <!-- Finish illustration -->
+        <div class="finish-mark" aria-hidden="true">
+          <div class="finish-mark__ring finish-mark__ring--1"></div>
+          <div class="finish-mark__ring finish-mark__ring--2"></div>
+          <i class="fa-solid fa-circle-check finish-mark__icon"></i>
+        </div>
+
+        <h2 class="finish-title">You're all set!</h2>
+        <p class="finish-subtitle" id="finishSubtitle">
+          Welcome to JARA ∆. Your profile is live and ready.
+        </p>
+
+        <!-- Save + redirect button -->
+        <button class="btn-primary btn-primary--large" id="finishBtn" aria-busy="false">
+          <span class="btn-submit__spinner" aria-hidden="true">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+          </span>
+          <span class="btn-submit__label">
+            Enter JARA
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </span>
+        </button>
+
+        <!-- Error shown if saving fails -->
+        <p class="ob-inline-error ob-inline-error--centered" id="finishError" hidden>
+          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          <span id="finishErrorText"></span>
+        </p>
+
+      </div>
+    </section>
+
+  </main><!-- /ob-stage -->
+
+  <!-- Onboarding JS -->
+  <script src="../js/onboarding.js"></script>
+
+</body>
+          </html>
