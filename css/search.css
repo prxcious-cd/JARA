@@ -1,0 +1,1225 @@
+/* ============================================================
+   JARA ∆ — Search Page Styles
+   css/search.css
+
+   TABLE OF CONTENTS
+   1.  Design Tokens
+   2.  Reset & Base
+   3.  Background Glow
+   4.  Search Header
+   5.  Search Bar
+   6.  Cancel Link
+   7.  Filter Chips
+   8.  Main Content Area
+   9.  Panels (Default / Results / Empty)
+   10. Default Panel — Recent & Popular
+   11. Chip List
+   12. Category Grid
+   13. Live Suggestions Dropdown
+   14. Results Summary Bar
+   15. Result Groups
+   16. Result Card
+   17. Empty State
+   18. Price Filter Modal
+   19. Bottom Navigation
+   20. Animations & Transitions
+   21. Responsive
+   22. Reduced Motion
+============================================================ */
+
+
+/* ============================================================
+   1. DESIGN TOKENS
+============================================================ */
+:root {
+  --color-bg:             #0A0A0F;
+  --color-surface:        #111118;
+  --color-surface-2:      #1A1A2A;
+  --color-surface-3:      #22223A;
+  --color-border:         #2A2A3E;
+  --color-border-soft:    #1E1E2E;
+  --color-accent:         #7C3AED;
+  --color-accent-light:   #A78BFA;
+  --color-accent-glow:    rgba(124, 58, 237, 0.15);
+  --color-success:        #10B981;
+  --color-warning:        #F59E0B;
+  --color-error:          #EF4444;
+  --color-text-primary:   #F4F4F8;
+  --color-text-secondary: #9090A8;
+  --color-text-tertiary:  #55556A;
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body:    'Inter', sans-serif;
+
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  --shadow-card:  0 4px 20px rgba(0,0,0,0.35);
+  --shadow-float: 0 8px 32px rgba(0,0,0,0.5);
+  --shadow-glow:  0 0 0 3px rgba(124, 58, 237, 0.2);
+
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  --header-height:     112px; /* bar + filters */
+  --bottom-nav-height: 68px;
+}
+
+
+/* ============================================================
+   2. RESET & BASE
+============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a      { color: inherit; text-decoration: none; }
+button { font-family: inherit; border: none; background: none; cursor: pointer; }
+input  { font-family: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-light);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: var(--radius-full); }
+
+
+/* ============================================================
+   3. BACKGROUND GLOW
+============================================================ */
+.page-glow {
+  position: fixed;
+  top: -5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(124, 58, 237, 0.09) 0%,
+    transparent 65%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+
+/* ============================================================
+   4. SEARCH HEADER
+   Sticky at top. Contains the search bar and filter chips.
+============================================================ */
+.sr-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(10, 10, 15, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.sr-header__inner {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-5) 0;
+}
+
+
+/* ============================================================
+   5. SEARCH BAR
+============================================================ */
+.sr-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.sr-bar {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sr-bar__icon {
+  position: absolute;
+  left: 14px;
+  color: var(--color-accent-light);
+  font-size: 0.9375rem;
+  pointer-events: none;
+  z-index: 1;
+  transition: color var(--transition-fast);
+}
+
+.sr-bar__input {
+  width: 100%;
+  background: var(--color-surface-2);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 13px 44px 13px 44px;
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base),
+    background var(--transition-fast);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Remove iOS default search styling */
+.sr-bar__input[type="search"]::-webkit-search-decoration,
+.sr-bar__input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+.sr-bar__input::placeholder { color: var(--color-text-tertiary); }
+
+.sr-bar__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-surface-3);
+  box-shadow: var(--shadow-glow);
+}
+
+.sr-bar__input:focus ~ .sr-bar__icon,
+.sr-bar:focus-within .sr-bar__icon {
+  color: var(--color-accent-light);
+}
+
+/* Clear (×) button */
+.sr-bar__clear {
+  position: absolute;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-tertiary);
+  font-size: 1rem;
+  border-radius: 50%;
+  transition: color var(--transition-fast);
+  z-index: 1;
+}
+
+.sr-bar__clear:hover { color: var(--color-text-secondary); }
+
+
+/* ============================================================
+   6. CANCEL LINK
+============================================================ */
+.sr-cancel {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-accent-light);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+  padding: var(--space-1) 0;
+}
+
+.sr-cancel:hover { opacity: 0.7; }
+
+
+/* ============================================================
+   7. FILTER CHIPS
+   Horizontally scrollable strip below the search bar.
+============================================================ */
+.sr-filters {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: var(--space-4);
+  scrollbar-width: none;
+}
+
+.sr-filters::-webkit-scrollbar { display: none; }
+
+.sr-filters:not([hidden]) {
+  animation: slide-down 200ms ease;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px 16px;
+  background: var(--color-surface-2);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.filter-chip:hover {
+  border-color: var(--color-accent-light);
+  color: var(--color-accent-light);
+}
+
+.filter-chip--active,
+.filter-chip[aria-pressed="true"] {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: var(--color-accent);
+  color: var(--color-accent-light);
+}
+
+
+/* ============================================================
+   8. MAIN CONTENT AREA
+============================================================ */
+.sr-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: var(--bottom-nav-height);
+}
+
+
+/* ============================================================
+   9. PANELS
+   Only one is visible at a time. JS toggles `hidden`.
+============================================================ */
+.sr-panel {
+  padding: var(--space-5) var(--space-5);
+}
+
+.sr-panel:not([hidden]) {
+  animation: fade-up 250ms ease both;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ============================================================
+   10. DEFAULT PANEL — RECENT & POPULAR SECTIONS
+============================================================ */
+.sr-default-section {
+  margin-bottom: var(--space-8);
+}
+
+.sr-default-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.sr-default-section__title {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sr-default-section__title i {
+  color: var(--color-accent-light);
+  font-size: 0.8125rem;
+}
+
+.sr-default-section__clear-all {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.sr-default-section__clear-all:hover { color: var(--color-error); }
+
+
+/* ============================================================
+   11. CHIP LIST (recent + popular searches)
+============================================================ */
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Individual search chip */
+.search-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 16px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.search-chip:hover {
+  border-color: var(--color-accent-light);
+  color: var(--color-accent-light);
+  background: var(--color-surface-3);
+}
+
+.search-chip:active { transform: scale(0.95); }
+
+.search-chip i {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+}
+
+/* Remove button inside recent chips */
+.search-chip__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-border);
+  color: var(--color-text-tertiary);
+  font-size: 0.5rem;
+  margin-left: 2px;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  cursor: pointer;
+  border: none;
+  flex-shrink: 0;
+}
+
+.search-chip__remove:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+
+/* Empty recent state */
+.chip-list--empty {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+
+/* ============================================================
+   12. CATEGORY GRID (Browse by Category)
+============================================================ */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.category-tile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.category-tile:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+  background: var(--color-surface-2);
+  transform: translateY(-2px);
+}
+
+.category-tile:active { transform: scale(0.97); }
+
+.category-tile__emoji {
+  font-size: 1.375rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.category-tile__name {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+
+/* ============================================================
+   13. LIVE SUGGESTIONS DROPDOWN
+   Appears while the user is typing, before full results render.
+============================================================ */
+.sr-suggestions {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--space-5);
+  box-shadow: var(--shadow-float);
+}
+
+.sr-suggestions:not([hidden]) {
+  animation: fade-up 180ms ease both;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border-soft);
+  transition: background var(--transition-fast);
+}
+
+.suggestion-item:last-child { border-bottom: none; }
+
+.suggestion-item:hover {
+  background: var(--color-surface-2);
+}
+
+.suggestion-item__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: rgba(124, 58, 237, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  color: var(--color-accent-light);
+  flex-shrink: 0;
+}
+
+.suggestion-item__text {
+  flex: 1;
+}
+
+.suggestion-item__title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+/* Highlighted match portion */
+.suggestion-item__title mark {
+  background: none;
+  color: var(--color-accent-light);
+  font-weight: 700;
+}
+
+.suggestion-item__sub {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  margin-top: 1px;
+}
+
+.suggestion-item__arrow {
+  color: var(--color-text-tertiary);
+  font-size: 0.75rem;
+  transition: transform var(--transition-fast);
+}
+
+.suggestion-item:hover .suggestion-item__arrow {
+  transform: translateX(3px);
+  color: var(--color-accent-light);
+}
+
+
+/* ============================================================
+   14. RESULTS SUMMARY BAR
+============================================================ */
+.sr-summary {
+  margin-bottom: var(--space-5);
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.sr-summary__count {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-right: var(--space-1);
+}
+
+.sr-summary__query {
+  color: var(--color-accent-light);
+  font-weight: 600;
+}
+
+
+/* ============================================================
+   15. RESULT GROUPS
+   One group per listing type (Products, Services, etc.)
+============================================================ */
+.result-group {
+  margin-bottom: var(--space-8);
+}
+
+.result-group:not([hidden]) {
+  animation: fade-up 250ms ease both;
+}
+
+.result-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.result-group__title {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  letter-spacing: 0.01em;
+}
+
+.result-group__count {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-tertiary);
+}
+
+.result-group__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+
+/* ============================================================
+   16. RESULT CARD
+   Full-width horizontal layout for search results.
+============================================================ */
+.result-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-base);
+  overflow: hidden;
+}
+
+.result-card:hover {
+  border-color: rgba(124, 58, 237, 0.35);
+  background: var(--color-surface-2);
+  transform: translateX(3px);
+  box-shadow: var(--shadow-card);
+}
+
+.result-card:active { transform: scale(0.99); }
+
+.result-card:not([hidden]) {
+  animation: fade-up 200ms ease both;
+}
+
+/* Thumbnail image */
+.result-card__thumb {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-surface-2);
+  overflow: hidden;
+  position: relative;
+}
+
+.result-card__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.result-card__thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  background: var(--color-surface-2);
+}
+
+/* Content area */
+.result-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Badges row */
+.result-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.result-card__title {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Highlight matched text in title */
+.result-card__title mark {
+  background: none;
+  color: var(--color-accent-light);
+  font-weight: 800;
+}
+
+.result-card__category {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+.result-card__price {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-accent-light);
+}
+
+/* Seller + distance row */
+.result-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+.result-card__seller {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  min-width: 0;
+}
+
+.result-card__seller-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.result-card__seller-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.result-card__seller-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-card__distance {
+  font-size: 0.6875rem;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* View Details button — right side */
+.result-card__action {
+  flex-shrink: 0;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.result-card__view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  font-size: 0.75rem;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.result-card:hover .result-card__view-btn {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: var(--color-accent-light);
+  color: var(--color-accent-light);
+}
+
+
+/* ============================================================
+   17. EMPTY STATE
+============================================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-6);
+}
+
+.empty-state__illustration {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(124, 58, 237, 0.2);
+  animation: ring-pulse 3s ease-in-out infinite;
+}
+
+.empty-state__ring--2 {
+  inset: -14px;
+  border-color: rgba(124, 58, 237, 0.1);
+  animation-delay: 0.7s;
+}
+
+@keyframes ring-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50%       { transform: scale(1.08); opacity: 0.15; }
+}
+
+.empty-state__icon {
+  font-size: 2.25rem;
+  color: var(--color-text-tertiary);
+  position: relative;
+  z-index: 1;
+  opacity: 0.5;
+}
+
+.empty-state__title {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.empty-state__sub {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  max-width: 280px;
+}
+
+.empty-state__query {
+  color: var(--color-accent-light);
+}
+
+.empty-state__hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  margin-top: -var(--space-2);
+}
+
+/* Primary action button */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: var(--color-accent);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 13px var(--space-8);
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 20px rgba(124, 58, 237, 0.35);
+  transition:
+    background var(--transition-base),
+    box-shadow var(--transition-base),
+    transform var(--transition-fast);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary:hover {
+  background: #6D28D9;
+  box-shadow: 0 4px 28px rgba(124, 58, 237, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active { transform: translateY(0); }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 12px var(--space-6);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-ghost:hover {
+  border-color: var(--color-accent-light);
+  color: var(--color-accent-light);
+}
+
+
+/* ============================================================
+   18. PRICE FILTER MODAL (bottom sheet)
+============================================================ */
+.price-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+}
+
+.price-modal[hidden] { display: none; }
+
+.price-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.price-modal__sheet {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: var(--space-6) var(--space-6) calc(var(--space-6) + env(safe-area-inset-bottom));
+  animation: sheet-up 300ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.price-modal__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  margin: 0 auto var(--space-5);
+}
+
+.price-modal__title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-6);
+}
+
+.price-modal__range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.price-modal__field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.price-modal__label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+.price-modal__sep {
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 22px;
+}
+
+.price-modal__input {
+  width: 100%;
+  background: var(--color-surface-2);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 11px 14px;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.price-modal__input::placeholder { color: var(--color-text-tertiary); }
+
+.price-modal__input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.price-modal__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
+.price-preset {
+  padding: 7px 14px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.price-preset:hover,
+.price-preset--active {
+  border-color: var(--color-accent);
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--color-accent-light);
+}
+
+.price-modal__actions {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+
+/* ============================================================
+   19. BOTTOM NAVIGATION
+============================================================ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: var(--bottom-nav-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: rgba(10, 10, 15, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--color-border-soft);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.bottom-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color var(--transition-fast);
+  text-decoration: none;
+}
+
+.bottom-nav__item i { font-size: 1.25rem; line-height: 1; }
+
+.bottom-nav__item:hover,
+.bottom-nav__item--active { color: var(--color-accent-light); }
+
+.bottom-nav__create-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: #fff;
+  box-shadow: 0 2px 16px rgba(124, 58, 237, 0.5);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.bottom-nav__item--create:hover .bottom-nav__create-btn {
+  transform: scale(1.08);
+  box-shadow: 0 4px 24px rgba(124, 58, 237, 0.65);
+}
+
+
+/* ============================================================
+   20. SHARED ANIMATIONS
+============================================================ */
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ============================================================
+   21. RESPONSIVE
+============================================================ */
+@media (max-width: 400px) {
+  .category-grid { grid-template-columns: 1fr; }
+  .sr-panel { padding: var(--space-4) var(--space-4); }
+}
+
+
+/* ============================================================
+   22. REDUCED MOTION
+============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+    }
