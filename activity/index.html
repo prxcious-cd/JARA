@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="JARA ∆ — Your activity, notifications and saved items." />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>Activity — JARA ∆</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+
+  <link rel="stylesheet" href="../css/activity.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-client.js"></script>
+</head>
+
+<body>
+
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <!-- ==============================
+       PULL-TO-REFRESH INDICATOR
+       Shown when user drags down on mobile.
+  ============================== -->
+  <div class="pull-indicator" id="pullIndicator" aria-hidden="true">
+    <div class="pull-indicator__inner">
+      <i class="fa-solid fa-rotate pull-indicator__icon" id="pullIcon"></i>
+      <span class="pull-indicator__label" id="pullLabel">Pull to refresh</span>
+    </div>
+  </div>
+
+  <!-- ==============================
+       TOP BAR
+  ============================== -->
+  <header class="ac-topbar">
+    <div class="ac-topbar__inner">
+      <h1 class="ac-topbar__title">Activity</h1>
+      <!-- Mark all read button — hidden when no unread notifications -->
+      <button
+        class="ac-topbar__mark-all"
+        id="markAllRead"
+        type="button"
+        aria-label="Mark all notifications as read"
+        hidden
+      >
+        Mark all read
+      </button>
+    </div>
+
+    <!-- ==============================
+         TAB BAR
+    ============================== -->
+    <div class="ac-tabs" role="tablist" aria-label="Activity sections">
+      <button
+        class="ac-tab ac-tab--active"
+        id="tabNotifications"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panelNotifications"
+        data-tab="notifications"
+      >
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+        Notifications
+        <!-- Unread count badge -->
+        <span class="ac-tab__badge" id="notifBadge" hidden>0</span>
+      </button>
+
+      <button
+        class="ac-tab"
+        id="tabActivity"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panelActivity"
+        data-tab="activity"
+      >
+        <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+        My Activity
+      </button>
+
+      <button
+        class="ac-tab"
+        id="tabSaved"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panelSaved"
+        data-tab="saved"
+      >
+        <i class="fa-solid fa-bookmark" aria-hidden="true"></i>
+        Saved
+      </button>
+
+      <button
+        class="ac-tab"
+        id="tabViewed"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panelViewed"
+        data-tab="viewed"
+      >
+        <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+        Recent
+      </button>
+    </div>
+  </header>
+
+  <!-- ==============================
+       MAIN CONTENT
+  ============================== -->
+  <main class="ac-main" id="acMain">
+
+    <!-- ============================================================
+         PANEL: NOTIFICATIONS
+    ============================================================ -->
+    <div
+      class="ac-panel ac-panel--active"
+      id="panelNotifications"
+      role="tabpanel"
+      aria-labelledby="tabNotifications"
+    >
+
+      <!-- Notification filter row -->
+      <div class="notif-filter-row" id="notifFilterRow">
+        <button class="notif-filter notif-filter--active" data-notif-filter="all" aria-pressed="true">All</button>
+        <button class="notif-filter" data-notif-filter="unread" aria-pressed="false">Unread</button>
+        <button class="notif-filter" data-notif-filter="listings" aria-pressed="false">Listings</button>
+        <button class="notif-filter" data-notif-filter="requests" aria-pressed="false">Requests</button>
+        <button class="notif-filter" data-notif-filter="system" aria-pressed="false">System</button>
+      </div>
+
+      <!-- Notification list -->
+      <div class="notif-list" id="notifList" role="list" aria-label="Notifications">
+        <!-- Populated by JS -->
+      </div>
+
+    </div><!-- /panelNotifications -->
+
+
+    <!-- ============================================================
+         PANEL: MY ACTIVITY
+    ============================================================ -->
+    <div
+      class="ac-panel"
+      id="panelActivity"
+      role="tabpanel"
+      aria-labelledby="tabActivity"
+      hidden
+    >
+
+      <!-- Stats row -->
+      <div class="stats-row" id="statsRow" aria-label="My statistics">
+        <!-- FUTURE: Replace with real Supabase counts from products, services, requests tables -->
+        <div class="stat-card">
+          <span class="stat-card__value" id="statListings">0</span>
+          <span class="stat-card__label">Listings</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__value" id="statRequests">0</span>
+          <span class="stat-card__label">Requests</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__value" id="statReplies">0</span>
+          <span class="stat-card__label">Replies</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__value" id="statViews">0</span>
+          <span class="stat-card__label">Views</span>
+        </div>
+      </div>
+
+      <!-- My Listings -->
+      <section class="activity-section" aria-labelledby="myListingsHeading">
+        <div class="activity-section__header">
+          <h2 class="activity-section__title" id="myListingsHeading">
+            <i class="fa-solid fa-box" aria-hidden="true"></i>
+            My Listings
+          </h2>
+          <a href="../sell/index.html" class="activity-section__action">
+            + Create <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </a>
+        </div>
+        <div class="activity-list" id="myListingsList" role="list" aria-label="My listings">
+          <!-- FUTURE: Query products + services tables WHERE owner_id = auth.uid() -->
+        </div>
+      </section>
+
+      <!-- My Requests -->
+      <section class="activity-section" aria-labelledby="myRequestsHeading">
+        <div class="activity-section__header">
+          <h2 class="activity-section__title" id="myRequestsHeading">
+            <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+            My Requests
+          </h2>
+          <a href="../sell/index.html?type=request" class="activity-section__action">
+            + Post <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </a>
+        </div>
+        <div class="activity-list" id="myRequestsList" role="list" aria-label="My requests">
+          <!-- FUTURE: Query requests table WHERE owner_id = auth.uid() -->
+        </div>
+      </section>
+
+      <!-- My Replies -->
+      <section class="activity-section" aria-labelledby="myRepliesHeading">
+        <div class="activity-section__header">
+          <h2 class="activity-section__title" id="myRepliesHeading">
+            <i class="fa-solid fa-reply" aria-hidden="true"></i>
+            My Replies
+          </h2>
+        </div>
+        <div class="activity-list" id="myRepliesList" role="list" aria-label="My replies">
+          <!-- FUTURE: Query a future replies/responses table WHERE responder_id = auth.uid() -->
+        </div>
+      </section>
+
+    </div><!-- /panelActivity -->
+
+
+    <!-- ============================================================
+         PANEL: SAVED ITEMS
+    ============================================================ -->
+    <div
+      class="ac-panel"
+      id="panelSaved"
+      role="tabpanel"
+      aria-labelledby="tabSaved"
+      hidden
+    >
+      <div class="saved-list" id="savedList" role="list" aria-label="Saved listings">
+        <!-- FUTURE: Query favorites table WHERE user_id = auth.uid() -->
+        <!-- Joined with products + services for listing details -->
+      </div>
+    </div><!-- /panelSaved -->
+
+
+    <!-- ============================================================
+         PANEL: RECENTLY VIEWED
+    ============================================================ -->
+    <div
+      class="ac-panel"
+      id="panelViewed"
+      role="tabpanel"
+      aria-labelledby="tabViewed"
+      hidden
+    >
+      <div class="viewed-list" id="viewedList" role="list" aria-label="Recently viewed listings">
+        <!-- FUTURE: Store view history in localStorage or a future listing_views table -->
+      </div>
+    </div><!-- /panelViewed -->
+
+  </main><!-- /ac-main -->
+
+
+  <!-- ==============================
+       BOTTOM NAVIGATION
+  ============================== -->
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="../explore/index.html" class="bottom-nav__item" aria-label="Explore">
+      <i class="fa-solid fa-compass" aria-hidden="true"></i>
+      <span>Explore</span>
+    </a>
+    <a href="../search/index.html" class="bottom-nav__item" aria-label="Search">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <span>Search</span>
+    </a>
+    <a href="../sell/index.html" class="bottom-nav__item bottom-nav__item--create" aria-label="Create">
+      <span class="bottom-nav__create-btn" aria-hidden="true">
+        <i class="fa-solid fa-plus"></i>
+      </span>
+      <span>Create</span>
+    </a>
+    <a href="../activity/index.html" class="bottom-nav__item bottom-nav__item--active" aria-label="Activity" aria-current="page">
+      <i class="fa-solid fa-bell" aria-hidden="true"></i>
+      <span>Activity</span>
+    </a>
+    <a href="../profile/index.html" class="bottom-nav__item" aria-label="My profile">
+      <i class="fa-solid fa-user" aria-hidden="true"></i>
+      <span>Me</span>
+    </a>
+  </nav>
+
+  <script src="../js/activity.js"></script>
+</body>
+        </html>
