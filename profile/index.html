@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="JARA ∆ — Your profile and account settings." />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>Me — JARA ∆</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+
+  <link rel="stylesheet" href="../css/profile.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-client.js"></script>
+</head>
+
+<body>
+
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <!-- ==============================
+       PULL-TO-REFRESH INDICATOR
+  ============================== -->
+  <div class="pull-indicator" id="pullIndicator" aria-hidden="true">
+    <div class="pull-indicator__inner">
+      <i class="fa-solid fa-rotate pull-indicator__icon" id="pullIcon"></i>
+      <span class="pull-indicator__label" id="pullLabel">Pull to refresh</span>
+    </div>
+  </div>
+
+  <!-- ==============================
+       MAIN SCROLL CONTAINER
+  ============================== -->
+  <main class="profile-page" id="profilePage">
+
+    <!-- ============================================================
+         PROFILE HEADER
+    ============================================================ -->
+    <section class="profile-header" aria-label="Profile header">
+
+      <!-- Top action bar: settings + share -->
+      <div class="profile-header__topbar">
+        <a href="../explore/index.html" class="profile-topbar-btn" aria-label="Back to Explore">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        </a>
+        <div class="profile-topbar-actions">
+          <button class="profile-topbar-btn" id="shareProfileBtn" type="button" aria-label="Share profile">
+            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+          </button>
+          <a href="#settings" class="profile-topbar-btn" aria-label="Settings">
+            <i class="fa-solid fa-gear" aria-hidden="true"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Background banner -->
+      <div class="profile-banner" aria-hidden="true">
+        <div class="profile-banner__gradient"></div>
+      </div>
+
+      <!-- Avatar + badges -->
+      <div class="profile-avatar-wrap">
+        <!-- Skeleton while loading -->
+        <div class="profile-avatar skeleton-pulse" id="profileAvatarSkeleton" aria-hidden="true"></div>
+        <!-- Real avatar — shown by JS -->
+        <div class="profile-avatar profile-avatar--hidden" id="profileAvatarEl" aria-label="Profile photo">
+          <!-- Image or initials set by JS -->
+        </div>
+        <!-- PRO ring — shown when user is PRO -->
+        <div class="profile-avatar__pro-ring" id="proRing" hidden aria-hidden="true"></div>
+        <!-- Edit button overlay -->
+        <a href="#edit-profile" class="profile-avatar__edit" id="editAvatarBtn" aria-label="Change profile photo">
+          <i class="fa-solid fa-camera" aria-hidden="true"></i>
+        </a>
+      </div>
+
+      <!-- Name + username -->
+      <div class="profile-identity">
+        <div class="profile-identity__name-row">
+          <!-- Skeleton -->
+          <div class="profile-skeleton profile-skeleton--name skeleton-pulse" id="nameSkeleton"></div>
+          <!-- Real content -->
+          <h1 class="profile-name profile-name--hidden" id="profileName"></h1>
+          <!-- Verified badge -->
+          <span class="verified-mark" id="verifiedMark" hidden aria-label="Verified by JARA">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+          </span>
+        </div>
+
+        <!-- Username + type -->
+        <div class="profile-skeleton profile-skeleton--sub skeleton-pulse" id="subSkeleton"></div>
+        <p class="profile-sub profile-sub--hidden" id="profileSub"></p>
+
+        <!-- Special badges row -->
+        <div class="profile-badges" id="profileBadges" hidden>
+          <!-- Inserted by JS based on user properties -->
+        </div>
+      </div>
+
+      <!-- School / Business / City -->
+      <div class="profile-context" id="profileContext" hidden>
+        <span class="profile-context__item" id="profileSchool">
+          <i class="fa-solid fa-graduation-cap" aria-hidden="true"></i>
+          <span></span>
+        </span>
+        <span class="profile-context__dot" aria-hidden="true"></span>
+        <span class="profile-context__item" id="profileJoined">
+          <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+          <span></span>
+        </span>
+      </div>
+
+      <!-- Bio -->
+      <p class="profile-bio" id="profileBio" hidden></p>
+
+      <!-- Quick action buttons under bio -->
+      <div class="profile-quick-actions">
+        <a href="#edit-profile" class="profile-action-btn profile-action-btn--primary" id="editProfileBtn">
+          <i class="fa-solid fa-pen" aria-hidden="true"></i>
+          Edit Profile
+        </a>
+        <a href="#upgrade" class="profile-action-btn profile-action-btn--pro" id="upgradeBtn">
+          <i class="fa-solid fa-crown" aria-hidden="true"></i>
+          Go PRO
+        </a>
+        <button class="profile-action-btn" id="shareBtn" type="button" aria-label="Share profile">
+          <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+        </button>
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================
+         QUICK STATS ROW
+    ============================================================ -->
+    <section class="stats-section" aria-label="Profile statistics">
+      <div class="stats-row">
+
+        <button class="stat-card" data-tab="listings" aria-label="My listings">
+          <span class="stat-card__value skeleton-pulse" id="statListings">—</span>
+          <span class="stat-card__label">Listings</span>
+        </button>
+
+        <button class="stat-card" data-tab="requests" aria-label="My requests">
+          <span class="stat-card__value skeleton-pulse" id="statRequests">—</span>
+          <span class="stat-card__label">Requests</span>
+        </button>
+
+        <button class="stat-card" data-tab="replies" aria-label="My replies">
+          <span class="stat-card__value skeleton-pulse" id="statReplies">—</span>
+          <span class="stat-card__label">Replies</span>
+        </button>
+
+        <a href="../activity/index.html#saved" class="stat-card" aria-label="Saved items">
+          <span class="stat-card__value skeleton-pulse" id="statSaved">—</span>
+          <span class="stat-card__label">Saved</span>
+        </a>
+
+        <div class="stat-card" aria-label="Profile views">
+          <span class="stat-card__value skeleton-pulse" id="statViews">—</span>
+          <span class="stat-card__label">Views</span>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         MY CONTENT TABS
+    ============================================================ -->
+    <section class="content-section" aria-label="My content">
+
+      <!-- Tab bar -->
+      <div class="content-tabs" role="tablist" aria-label="My content tabs">
+        <button
+          class="content-tab content-tab--active"
+          id="tabListings"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panelListings"
+          data-tab="listings"
+        >
+          <i class="fa-solid fa-box" aria-hidden="true"></i>
+          Listings
+        </button>
+        <button
+          class="content-tab"
+          id="tabRequests"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelRequests"
+          data-tab="requests"
+        >
+          <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+          Requests
+        </button>
+        <button
+          class="content-tab"
+          id="tabReplies"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelReplies"
+          data-tab="replies"
+        >
+          <i class="fa-solid fa-reply" aria-hidden="true"></i>
+          Replies
+        </button>
+      </div>
+
+      <!-- Panel: Listings -->
+      <div
+        class="content-panel content-panel--active"
+        id="panelListings"
+        role="tabpanel"
+        aria-labelledby="tabListings"
+      >
+        <div class="content-grid" id="listingsGrid" role="list" aria-label="My listings">
+          <!-- FUTURE: SELECT id, title, images, status, price, price_type, view_count
+                       FROM products WHERE owner_id = auth.uid()
+                       UNION ALL
+                       SELECT id, title, images, status, price, price_type, view_count
+                       FROM services WHERE provider_id = auth.uid()
+                       ORDER BY created_at DESC -->
+        </div>
+      </div>
+
+      <!-- Panel: Requests -->
+      <div
+        class="content-panel"
+        id="panelRequests"
+        role="tabpanel"
+        aria-labelledby="tabRequests"
+        hidden
+      >
+        <div class="content-list" id="requestsList" role="list" aria-label="My requests">
+          <!-- FUTURE: SELECT id, title, status, price_type, created_at
+                       FROM requests WHERE owner_id = auth.uid()
+                       ORDER BY created_at DESC -->
+        </div>
+      </div>
+
+      <!-- Panel: Replies -->
+      <div
+        class="content-panel"
+        id="panelReplies"
+        role="tabpanel"
+        aria-labelledby="tabReplies"
+        hidden
+      >
+        <div class="content-list" id="repliesList" role="list" aria-label="My replies">
+          <!-- FUTURE: SELECT r.id, r.body, r.created_at, req.title AS request_title
+                       FROM replies r
+                       JOIN requests req ON req.id = r.request_id
+                       WHERE r.responder_id = auth.uid()
+                       ORDER BY r.created_at DESC -->
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================
+         ACCOUNT SETTINGS
+    ============================================================ -->
+    <section class="settings-section" id="settings" aria-label="Account settings">
+
+      <!-- ACCOUNT GROUP -->
+      <div class="settings-group">
+        <h2 class="settings-group__label">Account</h2>
+
+        <div class="settings-list">
+
+          <a href="#edit-profile" class="settings-item" id="editProfileItem">
+            <div class="settings-item__icon settings-item__icon--purple">
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Edit Profile</span>
+              <span class="settings-item__sub">Name, photo, bio, contact</span>
+            </div>
+            <i class="fa-solid fa-chevron-right settings-item__arrow" aria-hidden="true"></i>
+          </a>
+
+          <a href="#verification" class="settings-item" id="verificationItem">
+            <div class="settings-item__icon settings-item__icon--blue">
+              <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Verification Status</span>
+              <span class="settings-item__sub" id="verificationSub">Not yet verified</span>
+            </div>
+            <i class="fa-solid fa-chevron-right settings-item__arrow" aria-hidden="true"></i>
+          </a>
+
+          <a href="#upgrade" class="settings-item settings-item--pro">
+            <div class="settings-item__icon settings-item__icon--gold">
+              <i class="fa-solid fa-crown" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Upgrade to JARA PRO</span>
+              <span class="settings-item__sub">Priority placement, PRO badge, more features</span>
+            </div>
+            <span class="settings-item__badge settings-item__badge--pro">PRO</span>
+          </a>
+
+          <a href="#notifications-prefs" class="settings-item">
+            <div class="settings-item__icon settings-item__icon--orange">
+              <i class="fa-solid fa-bell" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Notifications</span>
+              <span class="settings-item__sub">Manage what you're notified about</span>
+            </div>
+            <i class="fa-solid fa-chevron-right settings-item__arrow" aria-hidden="true"></i>
+          </a>
+
+          <a href="#invite" class="settings-item">
+            <div class="settings-item__icon settings-item__icon--green">
+              <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Invite Friends</span>
+              <span class="settings-item__sub">Share JARA with your campus</span>
+            </div>
+            <span class="settings-item__badge">Soon</span>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- PREFERENCES GROUP -->
+      <div class="settings-group">
+        <h2 class="settings-group__label">Preferences</h2>
+
+        <div class="settings-list">
+
+          <!-- Dark mode toggle -->
+          <div class="settings-item settings-item--toggle">
+            <div class="settings-item__icon settings-item__icon--purple">
+              <i class="fa-solid fa-moon" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Dark Mode</span>
+              <span class="settings-item__sub">Always on in JARA</span>
+            </div>
+            <label class="toggle-switch" aria-label="Dark mode">
+              <input
+                type="checkbox"
+                class="toggle-switch__input"
+                id="darkModeToggle"
+                checked
+                disabled
+              />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <!-- Notification preferences toggle -->
+          <div class="settings-item settings-item--toggle">
+            <div class="settings-item__icon settings-item__icon--blue">
+              <i class="fa-solid fa-volume-high" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Push Notifications</span>
+              <span class="settings-item__sub">Listing alerts and replies</span>
+            </div>
+            <label class="toggle-switch" aria-label="Push notifications">
+              <input
+                type="checkbox"
+                class="toggle-switch__input"
+                id="notifToggle"
+                checked
+              />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <!-- Language -->
+          <div class="settings-item settings-item--toggle">
+            <div class="settings-item__icon settings-item__icon--green">
+              <i class="fa-solid fa-globe" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Language</span>
+              <span class="settings-item__sub">English (Nigeria)</span>
+            </div>
+            <span class="settings-item__badge">Soon</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SUPPORT GROUP -->
+      <div class="settings-group">
+        <h2 class="settings-group__label">Support</h2>
+
+        <div class="settings-list">
+
+          <a href="https://wa.me/2347073436050" target="_blank" rel="noopener" class="settings-item">
+            <div class="settings-item__icon settings-item__icon--green">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Help & Support</span>
+              <span class="settings-item__sub">Chat with us on WhatsApp</span>
+            </div>
+            <i class="fa-solid fa-arrow-up-right-from-square settings-item__arrow" aria-hidden="true"></i>
+          </a>
+
+          <a href="../pages/privacy.html" class="settings-item">
+            <div class="settings-item__icon settings-item__icon--purple">
+              <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Privacy Policy</span>
+            </div>
+            <i class="fa-solid fa-chevron-right settings-item__arrow" aria-hidden="true"></i>
+          </a>
+
+          <a href="../pages/terms.html" class="settings-item">
+            <div class="settings-item__icon settings-item__icon--blue">
+              <i class="fa-solid fa-file-lines" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Terms of Service</span>
+            </div>
+            <i class="fa-solid fa-chevron-right settings-item__arrow" aria-hidden="true"></i>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- DANGER ZONE -->
+      <div class="settings-group settings-group--danger">
+        <div class="settings-list">
+
+          <button class="settings-item settings-item--logout" id="logoutBtn" type="button">
+            <div class="settings-item__icon settings-item__icon--red">
+              <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+            </div>
+            <div class="settings-item__content">
+              <span class="settings-item__label">Log Out</span>
+            </div>
+          </button>
+
+        </div>
+      </div>
+
+      <!-- App version -->
+      <p class="app-version">
+        JARA ∆ · Version 1.0.0 · Built in Nigeria 🇳🇬
+      </p>
+
+    </section>
+
+  </main>
+
+
+  <!-- ==============================
+       BOTTOM NAVIGATION
+  ============================== -->
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="../explore/index.html" class="bottom-nav__item" aria-label="Explore">
+      <i class="fa-solid fa-compass" aria-hidden="true"></i>
+      <span>Explore</span>
+    </a>
+    <a href="../search/index.html" class="bottom-nav__item" aria-label="Search">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <span>Search</span>
+    </a>
+    <a href="../sell/index.html" class="bottom-nav__item bottom-nav__item--create" aria-label="Create">
+      <span class="bottom-nav__create-btn" aria-hidden="true">
+        <i class="fa-solid fa-plus"></i>
+      </span>
+      <span>Create</span>
+    </a>
+    <a href="../activity/index.html" class="bottom-nav__item" aria-label="Activity">
+      <i class="fa-solid fa-bell" aria-hidden="true"></i>
+      <span>Activity</span>
+    </a>
+    <a href="../profile/index.html" class="bottom-nav__item bottom-nav__item--active" aria-label="My profile" aria-current="page">
+      <i class="fa-solid fa-user" aria-hidden="true"></i>
+      <span>Me</span>
+    </a>
+  </nav>
+
+  <script src="../js/profile.js"></script>
+</body>
+  </html>
