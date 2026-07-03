@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="JARA ∆ — Browse this business profile and see what they offer." />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>Store — JARA ∆</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+
+  <link rel="stylesheet" href="../css/store.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-client.js"></script>
+</head>
+
+<body>
+
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <!-- ==============================
+       PULL-TO-REFRESH INDICATOR
+  ============================== -->
+  <div class="pull-indicator" id="pullIndicator" aria-hidden="true">
+    <div class="pull-indicator__inner">
+      <i class="fa-solid fa-rotate pull-indicator__icon" id="pullIcon"></i>
+      <span class="pull-indicator__label" id="pullLabel">Pull to refresh</span>
+    </div>
+  </div>
+
+  <!-- ==============================
+       MAIN PAGE
+  ============================== -->
+  <main class="store-page" id="storePage">
+
+    <!-- ============================================================
+         STORE HEADER
+    ============================================================ -->
+    <section class="store-header" aria-label="Store header">
+
+      <!-- Floating topbar: back + share + follow -->
+      <div class="store-topbar" id="storeTopbar">
+        <a href="../explore/index.html" class="store-topbar__btn" aria-label="Go back">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+        </a>
+        <div class="store-topbar__right">
+          <button class="store-topbar__btn" id="topbarShareBtn" type="button" aria-label="Share store">
+            <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+          </button>
+          <button class="store-topbar__btn store-topbar__btn--follow" id="topbarFollowBtn" type="button" aria-label="Follow store">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cover / banner image -->
+      <div class="store-banner" id="storeBanner" aria-hidden="true">
+        <div class="store-banner__gradient"></div>
+        <!-- FUTURE: Replace background-image with store.banner_url from profiles/stores table -->
+      </div>
+
+      <!-- Logo + identity block -->
+      <div class="store-identity">
+
+        <!-- Logo -->
+        <div class="store-logo-wrap">
+          <div class="store-logo skeleton-pulse" id="storeLogoSkeleton" aria-hidden="true"></div>
+          <div class="store-logo store-logo--hidden" id="storeLogoEl" aria-label="Business logo">
+            <!-- Set by JS: image or initials -->
+          </div>
+          <!-- Verified ring -->
+          <div class="store-logo__verified-ring" id="verifiedRing" hidden aria-hidden="true"></div>
+        </div>
+
+        <!-- Name + badges -->
+        <div class="store-identity__info">
+          <div class="store-name-row">
+            <div class="store-skeleton store-skeleton--name skeleton-pulse" id="storeSkeleton1"></div>
+            <h1 class="store-name store-name--hidden" id="storeName"></h1>
+            <span class="store-verified-mark" id="storeVerifiedMark" hidden aria-label="Verified">
+              <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            </span>
+          </div>
+
+          <!-- Category + tagline -->
+          <div class="store-skeleton store-skeleton--sub skeleton-pulse" id="storeSkeleton2"></div>
+          <p class="store-category store-category--hidden" id="storeCategory"></p>
+
+          <!-- Feature badges -->
+          <div class="store-badges" id="storeBadges" hidden aria-label="Store features">
+            <!-- Injected by JS -->
+          </div>
+        </div>
+
+      </div><!-- /store-identity -->
+
+      <!-- Tagline -->
+      <p class="store-tagline" id="storeTagline" hidden></p>
+
+      <!-- Meta: location + date -->
+      <div class="store-meta" id="storeMeta" hidden>
+        <span class="store-meta__item" id="storeLocation">
+          <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+          <span></span>
+        </span>
+        <span class="store-meta__dot" aria-hidden="true"></span>
+        <span class="store-meta__item" id="storeJoined">
+          <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+          <span></span>
+        </span>
+      </div>
+
+      <!-- Feature chips row -->
+      <div class="store-features" id="storeFeatures" hidden aria-label="Store features">
+        <!-- Injected by JS -->
+      </div>
+
+      <!-- CTA action row -->
+      <div class="store-actions">
+        <a href="#contact" class="store-action-btn store-action-btn--primary" id="contactBtn">
+          <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+          Contact Seller
+        </a>
+        <button class="store-action-btn store-action-btn--follow" id="followBtn" type="button" aria-pressed="false">
+          <i class="fa-solid fa-plus" aria-hidden="true" id="followIcon"></i>
+          <span id="followLabel">Follow</span>
+        </button>
+        <button class="store-action-btn store-action-btn--icon" id="shareBtn" type="button" aria-label="Share store">
+          <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+        </button>
+      </div>
+
+    </section><!-- /store-header -->
+
+
+    <!-- ============================================================
+         BUSINESS STATS ROW
+    ============================================================ -->
+    <section class="stats-section" aria-label="Business statistics">
+      <div class="stats-row">
+
+        <div class="stat-card">
+          <span class="stat-card__value skeleton-pulse" id="statProducts">—</span>
+          <span class="stat-card__label">Products</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__value skeleton-pulse" id="statServices">—</span>
+          <span class="stat-card__label">Services</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__value skeleton-pulse" id="statCompleted">—</span>
+          <span class="stat-card__label">Completed</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__value skeleton-pulse" id="statFollowers">—</span>
+          <span class="stat-card__label">Followers</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card__value skeleton-pulse" id="statViews">—</span>
+          <span class="stat-card__label">Views</span>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         ABOUT SECTION
+    ============================================================ -->
+    <section class="about-section" id="about" aria-labelledby="aboutHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="aboutHeading">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          About
+        </h2>
+      </div>
+
+      <div class="about-card">
+        <!-- Description -->
+        <p class="about-description" id="aboutDescription">
+          Loading business information…
+        </p>
+
+        <div class="about-details" id="aboutDetails">
+
+          <!-- Opening hours -->
+          <div class="about-row" id="aboutHoursRow">
+            <div class="about-row__icon about-row__icon--green">
+              <i class="fa-solid fa-clock" aria-hidden="true"></i>
+            </div>
+            <div class="about-row__content">
+              <span class="about-row__label">Opening Hours</span>
+              <span class="about-row__value" id="aboutHours">Mon – Sat: 8am – 8pm</span>
+            </div>
+            <span class="about-row__status about-row__status--open" id="openStatus">Open Now</span>
+          </div>
+
+          <!-- Phone -->
+          <div class="about-row" id="aboutPhoneRow">
+            <div class="about-row__icon about-row__icon--purple">
+              <i class="fa-solid fa-phone" aria-hidden="true"></i>
+            </div>
+            <div class="about-row__content">
+              <span class="about-row__label">Phone</span>
+              <a class="about-row__value about-row__link" id="aboutPhone" href="#">—</a>
+            </div>
+          </div>
+
+          <!-- WhatsApp -->
+          <div class="about-row" id="aboutWhatsappRow">
+            <div class="about-row__icon about-row__icon--whatsapp">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+            </div>
+            <div class="about-row__content">
+              <span class="about-row__label">WhatsApp</span>
+              <a class="about-row__value about-row__link" id="aboutWhatsapp" href="#" target="_blank" rel="noopener">—</a>
+            </div>
+          </div>
+
+          <!-- Email -->
+          <div class="about-row" id="aboutEmailRow" hidden>
+            <div class="about-row__icon about-row__icon--blue">
+              <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+            </div>
+            <div class="about-row__content">
+              <span class="about-row__label">Email</span>
+              <a class="about-row__value about-row__link" id="aboutEmail" href="#">—</a>
+            </div>
+          </div>
+
+          <!-- Website -->
+          <div class="about-row" id="aboutWebsiteRow" hidden>
+            <div class="about-row__icon about-row__icon--orange">
+              <i class="fa-solid fa-globe" aria-hidden="true"></i>
+            </div>
+            <div class="about-row__content">
+              <span class="about-row__label">Website</span>
+              <a class="about-row__value about-row__link" id="aboutWebsite" href="#" target="_blank" rel="noopener">—</a>
+            </div>
+          </div>
+
+          <!-- Location -->
+          <div class="about-row" id="aboutLocationRow">
+            <div class="about-row__icon about-row__icon--red">
+              <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+            </div>
+            <div class="about-row__content">
+              <span class="about-row__label">Location</span>
+              <span class="about-row__value" id="aboutLocation">—</span>
+            </div>
+          </div>
+
+        </div><!-- /about-details -->
+      </div><!-- /about-card -->
+    </section>
+
+
+    <!-- ============================================================
+         STORE CONTENT TABS
+    ============================================================ -->
+    <section class="content-section" aria-label="Store listings">
+
+      <div class="content-tabs" role="tablist" aria-label="Store content">
+        <button
+          class="content-tab content-tab--active"
+          id="tabProducts"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panelProducts"
+          data-tab="products"
+        >
+          <i class="fa-solid fa-box" aria-hidden="true"></i>
+          Products
+          <span class="content-tab__count" id="tabProductsCount">0</span>
+        </button>
+        <button
+          class="content-tab"
+          id="tabServices"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelServices"
+          data-tab="services"
+        >
+          <i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i>
+          Services
+          <span class="content-tab__count" id="tabServicesCount">0</span>
+        </button>
+        <button
+          class="content-tab"
+          id="tabRequests"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelRequests"
+          data-tab="requests"
+        >
+          <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+          Requests
+          <span class="content-tab__count" id="tabRequestsCount">0</span>
+        </button>
+      </div>
+
+      <!-- Panel: Products -->
+      <div
+        class="content-panel content-panel--active"
+        id="panelProducts"
+        role="tabpanel"
+        aria-labelledby="tabProducts"
+      >
+        <div class="store-grid" id="productsGrid" role="list" aria-label="Products">
+          <!-- FUTURE: SELECT id, title, images, price, price_type, status, view_count
+                       FROM products WHERE owner_id = :store_id AND status = 'active'
+                       ORDER BY created_at DESC -->
+        </div>
+      </div>
+
+      <!-- Panel: Services -->
+      <div
+        class="content-panel"
+        id="panelServices"
+        role="tabpanel"
+        aria-labelledby="tabServices"
+        hidden
+      >
+        <div class="store-grid" id="servicesGrid" role="list" aria-label="Services">
+          <!-- FUTURE: SELECT id, title, images, price, price_type, status, view_count
+                       FROM services WHERE provider_id = :store_id AND status = 'active'
+                       ORDER BY created_at DESC -->
+        </div>
+      </div>
+
+      <!-- Panel: Requests -->
+      <div
+        class="content-panel"
+        id="panelRequests"
+        role="tabpanel"
+        aria-labelledby="tabRequests"
+        hidden
+      >
+        <div class="store-list" id="requestsList" role="list" aria-label="Requests">
+          <!-- FUTURE: SELECT id, title, status, price_type, created_at
+                       FROM requests WHERE owner_id = :store_id
+                       ORDER BY created_at DESC -->
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================
+         REVIEWS SECTION
+    ============================================================ -->
+    <section class="reviews-section" id="reviews" aria-labelledby="reviewsHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="reviewsHeading">
+          <i class="fa-solid fa-star" aria-hidden="true"></i>
+          Reviews
+        </h2>
+        <a href="#" class="section-see-all" id="seeAllReviews">
+          See all <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+      </div>
+
+      <!-- Rating summary -->
+      <div class="rating-summary" id="ratingSummary">
+        <div class="rating-summary__score">
+          <span class="rating-summary__number" id="ratingNumber">4.9</span>
+          <div class="rating-summary__stars" id="ratingStars" aria-label="4.9 out of 5 stars">
+            <!-- Stars injected by JS -->
+          </div>
+          <span class="rating-summary__count" id="ratingCount">0 reviews</span>
+        </div>
+        <div class="rating-summary__bars" id="ratingBars" aria-label="Rating breakdown">
+          <!-- Bar chart injected by JS -->
+        </div>
+      </div>
+
+      <!-- Individual review cards -->
+      <div class="reviews-list" id="reviewsList" role="list" aria-label="Customer reviews">
+        <!-- FUTURE: SELECT r.score, r.review, r.created_at,
+                       p.full_name, p.avatar_url
+                     FROM ratings r
+                     JOIN profiles p ON p.id = r.rater_id
+                     WHERE r.ratee_id = :store_id
+                     ORDER BY r.created_at DESC LIMIT 5 -->
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================
+         SIMILAR BUSINESSES — horizontal scroll
+    ============================================================ -->
+    <section class="similar-section" aria-labelledby="similarHeading">
+      <div class="section-header section-header--pad">
+        <h2 class="section-title" id="similarHeading">
+          <i class="fa-solid fa-store" aria-hidden="true"></i>
+          Similar Businesses
+        </h2>
+        <a href="../search/index.html" class="section-see-all">
+          See all <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+      </div>
+
+      <div class="similar-strip" id="similarStrip" role="list" aria-label="Similar businesses">
+        <!-- FUTURE: SELECT id, full_name, business_name, avatar_url,
+                       account_type, is_verified, is_premium, jara_points
+                     FROM profiles
+                     WHERE account_type IN ('business','service_provider')
+                     AND school_id = :school_id
+                     AND id != :store_id
+                     ORDER BY jara_points DESC LIMIT 8 -->
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         CONTACT SECTION (anchor #contact)
+    ============================================================ -->
+    <section class="contact-section" id="contact" aria-labelledby="contactHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="contactHeading">
+          <i class="fa-solid fa-message" aria-hidden="true"></i>
+          Get in Touch
+        </h2>
+      </div>
+
+      <div class="contact-card">
+        <p class="contact-card__text" id="contactIntro">
+          Ready to place an order or have a question?
+          Reach out directly and we'll get back to you quickly.
+        </p>
+        <div class="contact-card__actions">
+          <a class="contact-btn contact-btn--whatsapp" id="contactWhatsapp" href="#" target="_blank" rel="noopener">
+            <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+            Chat on WhatsApp
+          </a>
+          <a class="contact-btn" id="contactPhone" href="#">
+            <i class="fa-solid fa-phone" aria-hidden="true"></i>
+            Call
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom spacer for nav -->
+    <div style="height: 80px;" aria-hidden="true"></div>
+
+  </main><!-- /store-page -->
+
+
+  <!-- ==============================
+       BOTTOM NAVIGATION
+  ============================== -->
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <a href="../explore/index.html" class="bottom-nav__item" aria-label="Explore">
+      <i class="fa-solid fa-compass" aria-hidden="true"></i>
+      <span>Explore</span>
+    </a>
+    <a href="../search/index.html" class="bottom-nav__item" aria-label="Search">
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <span>Search</span>
+    </a>
+    <a href="../sell/index.html" class="bottom-nav__item bottom-nav__item--create" aria-label="Create">
+      <span class="bottom-nav__create-btn" aria-hidden="true">
+        <i class="fa-solid fa-plus"></i>
+      </span>
+      <span>Create</span>
+    </a>
+    <a href="../activity/index.html" class="bottom-nav__item" aria-label="Activity">
+      <i class="fa-solid fa-bell" aria-hidden="true"></i>
+      <span>Activity</span>
+    </a>
+    <a href="../profile/index.html" class="bottom-nav__item" aria-label="My profile">
+      <i class="fa-solid fa-user" aria-hidden="true"></i>
+      <span>Me</span>
+    </a>
+  </nav>
+
+  <script src="../js/store.js"></script>
+</body>
+  </html>
