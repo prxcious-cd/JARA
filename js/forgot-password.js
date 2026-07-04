@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
      ==========================
     */
     const { error } = await window._supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://yourname.github.io/jara/auth/reset-password.html',
+      redirectTo: 'https://prxcious-cd.github.io/jara/auth/reset-password.html',
     });
 
     return error;
