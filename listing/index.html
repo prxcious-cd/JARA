@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="JARA ∆ — View this listing from the campus marketplace." />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>Listing — JARA ∆</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+
+  <link rel="stylesheet" href="../css/listing.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-client.js"></script>
+</head>
+
+<body>
+
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <!-- ==============================
+       PULL-TO-REFRESH
+  ============================== -->
+  <div class="pull-indicator" id="pullIndicator" aria-hidden="true">
+    <div class="pull-indicator__inner">
+      <i class="fa-solid fa-rotate pull-indicator__icon" id="pullIcon"></i>
+      <span class="pull-indicator__label" id="pullLabel">Pull to refresh</span>
+    </div>
+  </div>
+
+  <!-- ==============================
+       FLOATING TOPBAR
+  ============================== -->
+  <header class="listing-topbar" id="listingTopbar">
+    <button class="topbar-btn" id="backBtn" type="button" aria-label="Go back">
+      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+    </button>
+    <div class="topbar-actions">
+      <button class="topbar-btn" id="saveBtn" type="button" aria-label="Save listing" aria-pressed="false">
+        <i class="fa-regular fa-bookmark" id="saveIcon" aria-hidden="true"></i>
+      </button>
+      <button class="topbar-btn" id="shareTopBtn" type="button" aria-label="Share listing">
+        <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+      </button>
+      <button class="topbar-btn" id="moreBtn" type="button" aria-label="More options">
+        <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==============================
+       MAIN SCROLL AREA
+  ============================== -->
+  <main class="listing-page" id="listingPage">
+
+    <!-- ============================================================
+         IMAGE GALLERY
+    ============================================================ -->
+    <section class="gallery" id="gallery" aria-label="Listing images">
+
+      <!-- Swipeable image track -->
+      <div class="gallery__track" id="galleryTrack" role="list" aria-label="Photos">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Dot indicators -->
+      <div class="gallery__dots" id="galleryDots" aria-label="Image navigation" hidden></div>
+
+      <!-- Top-left: type badge -->
+      <div class="gallery__type-badge" id="galleryTypeBadge" aria-hidden="true"></div>
+
+      <!-- Top-right: save + share buttons on image -->
+      <div class="gallery__image-actions">
+        <button class="gallery-action-btn" id="galSaveBtn" type="button" aria-label="Save listing" aria-pressed="false">
+          <i class="fa-regular fa-bookmark" id="galSaveIcon" aria-hidden="true"></i>
+        </button>
+        <button class="gallery-action-btn" id="galShareBtn" type="button" aria-label="Share listing">
+          <i class="fa-solid fa-share-nodes" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <!-- Skeleton loader while images load -->
+      <div class="gallery__skeleton skeleton-pulse" id="gallerySkeleton" aria-hidden="true"></div>
+
+    </section>
+
+
+    <!-- ============================================================
+         LISTING HEADER INFO
+    ============================================================ -->
+    <section class="listing-info" aria-label="Listing details">
+
+      <!-- Category + date row -->
+      <div class="listing-info__meta">
+        <span class="listing-category skeleton-pulse" id="listingCategory"></span>
+        <span class="listing-info__sep" aria-hidden="true">·</span>
+        <span class="listing-date" id="listingDate"></span>
+        <span class="listing-info__sep" aria-hidden="true">·</span>
+        <span class="listing-views">
+          <i class="fa-solid fa-eye" aria-hidden="true"></i>
+          <span id="listingViews">—</span>
+        </span>
+      </div>
+
+      <!-- Title -->
+      <div class="listing-title-skeleton skeleton-pulse" id="titleSkeleton" aria-hidden="true"></div>
+      <h1 class="listing-title listing-title--hidden" id="listingTitle"></h1>
+
+      <!-- Price + availability row -->
+      <div class="listing-price-row" id="listingPriceRow">
+        <div>
+          <span class="listing-price skeleton-pulse" id="listingPrice"></span>
+          <span class="listing-price-label" id="listingPriceLabel"></span>
+        </div>
+        <span class="listing-status" id="listingStatus" hidden></span>
+      </div>
+
+      <!-- Tags -->
+      <div class="listing-tags" id="listingTags" hidden aria-label="Tags"></div>
+
+    </section>
+
+
+    <!-- ============================================================
+         DESCRIPTION / DETAILS
+    ============================================================ -->
+    <section class="detail-section" aria-labelledby="descHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="descHeading">
+          <i class="fa-solid fa-align-left" aria-hidden="true"></i>
+          Description
+        </h2>
+      </div>
+
+      <div class="detail-card">
+        <p class="detail-description" id="listingDescription">Loading…</p>
+
+        <!-- Feature chips (condition, type, etc.) -->
+        <div class="detail-features" id="detailFeatures" hidden></div>
+
+        <!-- Expandable "read more" — shown when text is long -->
+        <button class="read-more-btn" id="readMoreBtn" type="button" hidden>
+          Read more <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SELLER CARD
+    ============================================================ -->
+    <section class="detail-section" aria-labelledby="sellerHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="sellerHeading">
+          <i class="fa-solid fa-user" aria-hidden="true"></i>
+          Seller
+        </h2>
+      </div>
+
+      <div class="seller-card" id="sellerCard">
+
+        <div class="seller-card__main">
+          <!-- Avatar -->
+          <div class="seller-avatar skeleton-pulse" id="sellerAvatarSkeleton" aria-hidden="true"></div>
+          <div class="seller-avatar seller-avatar--hidden" id="sellerAvatarEl" aria-hidden="true"></div>
+
+          <!-- Info -->
+          <div class="seller-info">
+            <div class="seller-name-row">
+              <div class="seller-skeleton seller-skeleton--name skeleton-pulse" id="sellerSkeleton1"></div>
+              <p class="seller-name seller-name--hidden" id="sellerName"></p>
+              <span class="seller-verified" id="sellerVerified" hidden aria-label="Verified">
+                <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+              </span>
+            </div>
+            <div class="seller-skeleton seller-skeleton--sub skeleton-pulse" id="sellerSkeleton2"></div>
+            <p class="seller-sub seller-sub--hidden" id="sellerSub"></p>
+            <div class="seller-badges" id="sellerBadges" hidden></div>
+
+            <!-- Rating row -->
+            <div class="seller-rating" id="sellerRating" hidden>
+              <div class="seller-rating__stars" id="sellerStars" aria-label="Rating"></div>
+              <span class="seller-rating__count" id="sellerRatingCount"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seller action buttons -->
+        <div class="seller-card__actions">
+          <a class="seller-action-btn seller-action-btn--store" id="viewStoreBtn" href="#">
+            <i class="fa-solid fa-store" aria-hidden="true"></i>
+            View Store
+          </a>
+          <a class="seller-action-btn seller-action-btn--contact" id="contactSellerBtn" href="#">
+            <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+            Contact
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         CONTACT OPTIONS
+    ============================================================ -->
+    <section class="detail-section" id="contact" aria-labelledby="contactHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="contactHeading">
+          <i class="fa-solid fa-message" aria-hidden="true"></i>
+          Get in Touch
+        </h2>
+      </div>
+
+      <div class="contact-grid">
+
+        <a class="contact-option contact-option--whatsapp" id="waBtn" href="#" target="_blank" rel="noopener">
+          <div class="contact-option__icon">
+            <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+          </div>
+          <span class="contact-option__label">WhatsApp</span>
+          <span class="contact-option__sub">Chat now</span>
+        </a>
+
+        <a class="contact-option contact-option--call" id="callBtn" href="#">
+          <div class="contact-option__icon">
+            <i class="fa-solid fa-phone" aria-hidden="true"></i>
+          </div>
+          <span class="contact-option__label">Call</span>
+          <span class="contact-option__sub">Phone call</span>
+        </a>
+
+        <button class="contact-option" id="copyPhoneBtn" type="button" aria-label="Copy phone number">
+          <div class="contact-option__icon">
+            <i class="fa-regular fa-copy" aria-hidden="true"></i>
+          </div>
+          <span class="contact-option__label">Copy Number</span>
+          <span class="contact-option__sub">To clipboard</span>
+        </button>
+
+        <button class="contact-option" id="copyLinkBtn" type="button" aria-label="Copy listing link">
+          <div class="contact-option__icon">
+            <i class="fa-solid fa-link" aria-hidden="true"></i>
+          </div>
+          <span class="contact-option__label">Copy Link</span>
+          <span class="contact-option__sub">Share this listing</span>
+        </button>
+
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         LOCATION
+    ============================================================ -->
+    <section class="detail-section" aria-labelledby="locationHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="locationHeading">
+          <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+          Location
+        </h2>
+      </div>
+
+      <div class="location-card">
+        <!-- Map placeholder -->
+        <div class="location-map-placeholder" aria-hidden="true" id="mapPlaceholder">
+          <div class="location-map-placeholder__glow"></div>
+          <div class="location-map-placeholder__grid" aria-hidden="true"></div>
+          <div class="location-map-placeholder__pin">
+            <i class="fa-solid fa-location-dot"></i>
+          </div>
+          <!-- FUTURE: Replace with a real map using Leaflet.js or Google Maps embed -->
+        </div>
+
+        <div class="location-card__body">
+          <p class="location-card__address" id="locationAddress">—</p>
+          <p class="location-card__distance" id="locationDistance">
+            <i class="fa-solid fa-route" aria-hidden="true"></i>
+            <span>—</span>
+          </p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SIMILAR LISTINGS — horizontal scroll
+    ============================================================ -->
+    <section class="detail-section similar-section" aria-labelledby="similarHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="similarHeading">
+          <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+          Similar Listings
+        </h2>
+        <a href="../search/index.html" class="section-see-all">
+          See all <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+      </div>
+
+      <div class="similar-strip" id="similarStrip" role="list" aria-label="Similar listings">
+        <!-- Skeletons while loading -->
+        <div class="card-skeleton" aria-hidden="true"></div>
+        <div class="card-skeleton" aria-hidden="true"></div>
+        <div class="card-skeleton" aria-hidden="true"></div>
+      </div>
+    </section>
+
+
+    <!-- ============================================================
+         SAFETY SECTION
+    ============================================================ -->
+    <section class="detail-section safety-section" aria-labelledby="safetyHeading">
+      <div class="section-header">
+        <h2 class="section-title" id="safetyHeading">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+          Safety
+        </h2>
+      </div>
+
+      <div class="safety-card">
+
+        <div class="safety-tip">
+          <div class="safety-tip__icon">
+            <i class="fa-solid fa-handshake" aria-hidden="true"></i>
+          </div>
+          <div>
+            <p class="safety-tip__title">Meet in a safe place</p>
+            <p class="safety-tip__body">Always meet in a public area on campus. Prefer busy locations like the library or student union.</p>
+          </div>
+        </div>
+
+        <div class="safety-tip">
+          <div class="safety-tip__icon">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i>
+          </div>
+          <div>
+            <p class="safety-tip__title">Inspect before you pay</p>
+            <p class="safety-tip__body">Always check a product in person before completing payment. Never pay for something you haven't seen.</p>
+          </div>
+        </div>
+
+        <div class="safety-tip">
+          <div class="safety-tip__icon">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+          </div>
+          <div>
+            <p class="safety-tip__title">Trust your instincts</p>
+            <p class="safety-tip__body">If something feels off, don't proceed. Your safety is always more important than any deal.</p>
+          </div>
+        </div>
+
+        <!-- Report + Community Guidelines -->
+        <div class="safety-footer">
+          <button class="safety-report-btn" id="reportBtn" type="button">
+            <i class="fa-solid fa-flag" aria-hidden="true"></i>
+            Report this listing
+          </button>
+          <a href="../pages/community-guidelines.html" class="safety-guidelines-link">
+            Community Guidelines <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Bottom spacer -->
+    <div style="height: 100px;" aria-hidden="true"></div>
+
+  </main><!-- /listing-page -->
+
+
+  <!-- ==============================
+       STICKY BOTTOM CTA BAR
+       Always visible. Primary contact action.
+  ============================== -->
+  <div class="sticky-cta" id="stickyCta" aria-label="Contact seller">
+    <div class="sticky-cta__price" id="stickyPrice">—</div>
+    <a class="sticky-cta__btn" id="stickyContactBtn" href="#" target="_blank" rel="noopener">
+      <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+      Contact Seller
+    </a>
+  </div>
+
+
+  <!-- ==============================
+       MORE OPTIONS BOTTOM SHEET
+  ============================== -->
+  <div class="bottom-sheet" id="moreSheet" aria-modal="true" role="dialog" aria-label="More options" hidden>
+    <div class="bottom-sheet__backdrop" id="moreSheetBackdrop"></div>
+    <div class="bottom-sheet__panel">
+      <div class="bottom-sheet__handle" aria-hidden="true"></div>
+      <div class="bottom-sheet__list">
+        <button class="sheet-item" id="sheetShare" type="button">
+          <i class="fa-solid fa-share-nodes sheet-item__icon" aria-hidden="true"></i>
+          Share Listing
+        </button>
+        <button class="sheet-item" id="sheetSave" type="button">
+          <i class="fa-regular fa-bookmark sheet-item__icon" id="sheetSaveIcon" aria-hidden="true"></i>
+          <span id="sheetSaveLabel">Save Listing</span>
+        </button>
+        <button class="sheet-item" id="sheetCopyLink" type="button">
+          <i class="fa-solid fa-link sheet-item__icon" aria-hidden="true"></i>
+          Copy Link
+        </button>
+        <a class="sheet-item" id="sheetViewStore" href="#">
+          <i class="fa-solid fa-store sheet-item__icon" aria-hidden="true"></i>
+          View Seller's Store
+        </a>
+        <button class="sheet-item sheet-item--danger" id="sheetReport" type="button">
+          <i class="fa-solid fa-flag sheet-item__icon" aria-hidden="true"></i>
+          Report Listing
+        </button>
+        <button class="sheet-item sheet-item--cancel" id="sheetClose" type="button">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/listing.js"></script>
+</body>
+  </html>
