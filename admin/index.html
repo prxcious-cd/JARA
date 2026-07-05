@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="JARA ∆ Admin Panel — Private control centre." />
+  <meta name="theme-color" content="#0A0A0F" />
+  <!-- Prevent indexing by search engines -->
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Admin — JARA ∆</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+
+  <link rel="stylesheet" href="../css/admin.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-client.js"></script>
+</head>
+
+<body>
+
+  <!-- ==============================
+       SIDEBAR NAVIGATION
+  ============================== -->
+  <aside class="admin-sidebar" id="adminSidebar" aria-label="Admin navigation">
+    <div class="sidebar-header">
+      <span class="sidebar-logo">
+        JARA <span class="sidebar-logo__delta">∆</span>
+      </span>
+      <span class="sidebar-badge">Admin</span>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Admin sections">
+      <a href="#overview"      class="sidebar-link sidebar-link--active" data-section="overview">
+        <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+        <span>Overview</span>
+      </a>
+      <a href="#users"         class="sidebar-link" data-section="users">
+        <i class="fa-solid fa-users" aria-hidden="true"></i>
+        <span>Users</span>
+        <span class="sidebar-link__badge" id="pendingVerifBadge">0</span>
+      </a>
+      <a href="#businesses"    class="sidebar-link" data-section="businesses">
+        <i class="fa-solid fa-store" aria-hidden="true"></i>
+        <span>Businesses</span>
+      </a>
+      <a href="#listings"      class="sidebar-link" data-section="listings">
+        <i class="fa-solid fa-box" aria-hidden="true"></i>
+        <span>Listings</span>
+        <span class="sidebar-link__badge sidebar-link__badge--red" id="reportsBadge">0</span>
+      </a>
+      <a href="#founding"      class="sidebar-link" data-section="founding">
+        <i class="fa-solid fa-medal" aria-hidden="true"></i>
+        <span>Founding Members</span>
+      </a>
+      <a href="#pro"           class="sidebar-link" data-section="pro">
+        <i class="fa-solid fa-crown" aria-hidden="true"></i>
+        <span>JARA PRO</span>
+      </a>
+      <a href="#announcements" class="sidebar-link" data-section="announcements">
+        <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+        <span>Announcements</span>
+      </a>
+      <a href="#analytics"     class="sidebar-link" data-section="analytics">
+        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+        <span>Analytics</span>
+      </a>
+      <a href="#settings"      class="sidebar-link" data-section="settings">
+        <i class="fa-solid fa-gear" aria-hidden="true"></i>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-logout" id="adminLogoutBtn" type="button">
+        <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+        <span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ==============================
+       MOBILE TOPBAR
+  ============================== -->
+  <header class="admin-topbar" aria-label="Admin top bar">
+    <button class="topbar-menu-btn" id="sidebarToggle" type="button" aria-label="Toggle menu" aria-expanded="false">
+      <i class="fa-solid fa-bars" aria-hidden="true"></i>
+    </button>
+    <span class="topbar-logo">
+      JARA <span class="topbar-logo__delta">∆</span>
+      <span class="topbar-admin-tag">Admin</span>
+    </span>
+    <div class="topbar-actions">
+      <button class="topbar-icon-btn" type="button" aria-label="Notifications">
+        <i class="fa-solid fa-bell" aria-hidden="true"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+  <!-- ==============================
+       MAIN CONTENT
+  ============================== -->
+  <main class="admin-main" id="adminMain">
+
+    <!-- ============================================================
+         SECTION: OVERVIEW
+    ============================================================ -->
+    <section class="admin-section admin-section--active" id="sectionOverview" aria-label="Overview">
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Overview</h1>
+          <p class="section-sub" id="overviewGreeting">Good morning, Precious 👋</p>
+        </div>
+        <div class="section-header__actions">
+          <button class="admin-btn admin-btn--ghost" id="refreshBtn" type="button">
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Platform status bar -->
+      <div class="status-bar" id="statusBar">
+        <div class="status-bar__dot status-bar__dot--live" aria-hidden="true"></div>
+        <span class="status-bar__text" id="statusText">Platform is Live</span>
+        <span class="status-bar__time" id="statusTime"></span>
+      </div>
+
+      <!-- KPI cards grid -->
+      <div class="kpi-grid" id="kpiGrid">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Quick actions row -->
+      <div class="quick-actions-row">
+        <h2 class="quick-actions-heading">Quick Actions</h2>
+        <div class="quick-actions-grid">
+          <button class="quick-action" data-section="users" type="button">
+            <i class="fa-solid fa-user-check" aria-hidden="true"></i>
+            <span>Verify User</span>
+          </button>
+          <button class="quick-action" data-section="listings" type="button">
+            <i class="fa-solid fa-flag" aria-hidden="true"></i>
+            <span>View Reports</span>
+          </button>
+          <button class="quick-action" data-section="founding" type="button">
+            <i class="fa-solid fa-medal" aria-hidden="true"></i>
+            <span>Founding Members</span>
+          </button>
+          <button class="quick-action" data-section="announcements" type="button">
+            <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+            <span>New Announcement</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Recent activity feed -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+            Recent Activity
+          </h2>
+        </div>
+        <div class="activity-feed" id="activityFeed">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </section><!-- /sectionOverview -->
+
+
+    <!-- ============================================================
+         SECTION: USERS
+    ============================================================ -->
+    <section class="admin-section" id="sectionUsers" aria-label="User management" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Users</h1>
+          <p class="section-sub">Manage all JARA members.</p>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="admin-search">
+        <i class="fa-solid fa-magnifying-glass admin-search__icon" aria-hidden="true"></i>
+        <input
+          class="admin-search__input"
+          type="search"
+          id="userSearch"
+          placeholder="Search by name, email or JARA ID…"
+          autocomplete="off"
+          aria-label="Search users"
+        />
+      </div>
+
+      <!-- Filter chips -->
+      <div class="filter-row" role="group" aria-label="Filter users">
+        <button class="filter-chip filter-chip--active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="student">Students</button>
+        <button class="filter-chip" data-filter="business">Businesses</button>
+        <button class="filter-chip" data-filter="professional">Professionals</button>
+        <button class="filter-chip" data-filter="verified">Verified</button>
+        <button class="filter-chip" data-filter="pending">Pending</button>
+        <button class="filter-chip" data-filter="pro">JARA PRO</button>
+      </div>
+
+      <!-- Users table -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-users" aria-hidden="true"></i>
+            All Users
+          </h2>
+          <span class="admin-card__count" id="userCount">0 users</span>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="usersTable" aria-label="Users list">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>JARA ID</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section><!-- /sectionUsers -->
+
+
+    <!-- ============================================================
+         SECTION: BUSINESSES
+    ============================================================ -->
+    <section class="admin-section" id="sectionBusinesses" aria-label="Business management" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Businesses</h1>
+          <p class="section-sub">Manage campus businesses.</p>
+        </div>
+      </div>
+
+      <!-- Pending verifications -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-clock" aria-hidden="true"></i>
+            Pending Verifications
+          </h2>
+          <span class="status-dot status-dot--warning" aria-hidden="true"></span>
+        </div>
+        <div class="biz-list" id="pendingBizList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- All businesses -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-store" aria-hidden="true"></i>
+            All Businesses
+          </h2>
+          <span class="admin-card__count" id="bizCount">0 businesses</span>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="bizTable" aria-label="Businesses list">
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Owner</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bizTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section><!-- /sectionBusinesses -->
+
+
+    <!-- ============================================================
+         SECTION: LISTINGS
+    ============================================================ -->
+    <section class="admin-section" id="sectionListings" aria-label="Listing management" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Listings</h1>
+          <p class="section-sub">Manage all products, services and requests.</p>
+        </div>
+      </div>
+
+      <!-- Reports queue -->
+      <div class="admin-card admin-card--alert">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-flag" aria-hidden="true"></i>
+            Reported Listings
+          </h2>
+          <span class="status-dot status-dot--red" aria-hidden="true"></span>
+        </div>
+        <div class="reports-list" id="reportedList">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- All listings -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-list" aria-hidden="true"></i>
+            All Listings
+          </h2>
+          <div class="admin-card__header-right">
+            <button class="filter-chip filter-chip--active" data-listing-filter="all">All</button>
+            <button class="filter-chip" data-listing-filter="product">Products</button>
+            <button class="filter-chip" data-listing-filter="service">Services</button>
+            <button class="filter-chip" data-listing-filter="request">Requests</button>
+          </div>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="listingsTable" aria-label="Listings">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Seller</th>
+                <th>Status</th>
+                <th>Views</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="listingsTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section><!-- /sectionListings -->
+
+
+    <!-- ============================================================
+         SECTION: FOUNDING MEMBERS
+    ============================================================ -->
+    <section class="admin-section" id="sectionFounding" aria-label="Founding members" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Founding Members</h1>
+          <p class="section-sub">The first 100 verified JARA accounts.</p>
+        </div>
+      </div>
+
+      <!-- Founding member progress card -->
+      <div class="admin-card founding-progress-card">
+        <div class="founding-progress-card__header">
+          <div class="founding-icon" aria-hidden="true">
+            <i class="fa-solid fa-trophy"></i>
+          </div>
+          <div>
+            <h2 class="founding-progress-card__title">Founding Member Programme</h2>
+            <p class="founding-progress-card__sub">Only 100 spots available. Reserved for the first 100 verified accounts.</p>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="founding-bar" aria-label="Founding member slots used">
+          <div class="founding-bar__track">
+            <div class="founding-bar__fill" id="foundingBarFill" style="width: 0%"></div>
+          </div>
+          <div class="founding-bar__labels">
+            <span class="founding-bar__awarded" id="foundingAwarded">0 awarded</span>
+            <span class="founding-bar__remaining" id="foundingRemaining">100 remaining</span>
+          </div>
+        </div>
+
+        <div class="founding-rule">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          Only verified accounts with <code>is_founding_member = FALSE</code> and <code>is_verified = TRUE</code> qualify. This badge cannot be self-assigned.
+        </div>
+      </div>
+
+      <!-- Founding members list -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-medal" aria-hidden="true"></i>
+            Current Founding Members
+          </h2>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="foundingTable" aria-label="Founding members">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Member</th>
+                <th>JARA ID</th>
+                <th>Awarded</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="foundingTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section><!-- /sectionFounding -->
+
+
+    <!-- ============================================================
+         SECTION: JARA PRO
+    ============================================================ -->
+    <section class="admin-section" id="sectionPro" aria-label="JARA PRO management" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">JARA PRO</h1>
+          <p class="section-sub">Manage PRO subscriptions.</p>
+        </div>
+      </div>
+
+      <!-- PRO stats -->
+      <div class="kpi-grid kpi-grid--3">
+        <div class="kpi-card kpi-card--gold">
+          <div class="kpi-card__icon"><i class="fa-solid fa-crown"></i></div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__value" id="proTotal">0</span>
+            <span class="kpi-card__label">Total PRO Members</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-card__icon"><i class="fa-solid fa-circle-check"></i></div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__value" id="proActive">0</span>
+            <span class="kpi-card__label">Active Plans</span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-card__icon"><i class="fa-solid fa-clock"></i></div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__value" id="proExpired">0</span>
+            <span class="kpi-card__label">Expired Plans</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRO member list -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-crown" aria-hidden="true"></i>
+            PRO Members
+          </h2>
+        </div>
+        <div class="data-table-wrap">
+          <table class="data-table" id="proTable" aria-label="PRO members">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Plan</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="proTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section><!-- /sectionPro -->
+
+
+    <!-- ============================================================
+         SECTION: ANNOUNCEMENTS
+    ============================================================ -->
+    <section class="admin-section" id="sectionAnnouncements" aria-label="Announcements" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Announcements</h1>
+          <p class="section-sub">Send messages to all JARA members.</p>
+        </div>
+      </div>
+
+      <!-- Compose panel -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            Draft Announcement
+          </h2>
+          <span class="admin-badge admin-badge--soon">Coming Soon</span>
+        </div>
+
+        <div class="announcement-form">
+
+          <div class="admin-field">
+            <label class="admin-field__label" for="annTitle">Title</label>
+            <input
+              class="admin-field__input"
+              type="text"
+              id="annTitle"
+              placeholder="e.g. Welcome to JARA ∆ Launch!"
+              maxlength="100"
+            />
+          </div>
+
+          <div class="admin-field">
+            <label class="admin-field__label" for="annBody">Message</label>
+            <textarea
+              class="admin-field__input admin-field__textarea"
+       id="annBody"
+              placeholder="Write your message to the JARA community…"
+              rows="5"
+              maxlength="1000"
+            ></textarea>
+            <p class="admin-field__count"><span id="annCharCount">0</span> / 1000</p>
+          </div>
+
+          <div class="admin-field">
+            <label class="admin-field__label">Send to</label>
+            <div class="radio-group">
+              <label class="radio-item">
+                <input type="radio" name="annAudience" value="all" checked />
+                <span>All members</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="annAudience" value="students" />
+                <span>Students only</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="annAudience" value="businesses" />
+                <span>Businesses only</span>
+              </label>
+              <label class="radio-item">
+                <input type="radio" name="annAudience" value="pro" />
+                <span>PRO members only</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="announcement-form__actions">
+            <button class="admin-btn admin-btn--ghost" type="button" id="annPreviewBtn">
+              Preview
+            </button>
+            <button class="admin-btn admin-btn--primary" type="button" id="annSendBtn" disabled>
+              <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+              Send Announcement
+            </button>
+          </div>
+
+          <p class="placeholder-note">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            Announcements will be delivered as in-app notifications when the notification engine is connected.
+          </p>
+        </div>
+      </div>
+
+      <!-- Previous announcements -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+            Sent Announcements
+          </h2>
+        </div>
+        <div id="sentAnnouncements">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </section><!-- /sectionAnnouncements -->
+
+
+    <!-- ============================================================
+         SECTION: ANALYTICS
+    ============================================================ -->
+    <section class="admin-section" id="sectionAnalytics" aria-label="Analytics" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Analytics</h1>
+          <p class="section-sub">Platform performance at a glance.</p>
+        </div>
+        <div class="section-header__actions">
+          <select class="admin-select" id="analyticsRange" aria-label="Date range">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Top metric cards -->
+      <div class="kpi-grid kpi-grid--3">
+        <div class="kpi-card kpi-card--accent">
+          <div class="kpi-card__icon"><i class="fa-solid fa-users"></i></div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__value" id="anaNewUsers">0</span>
+            <span class="kpi-card__label">New Users (30d)</span>
+            <span class="kpi-card__trend kpi-card__trend--up" id="anaNewUsersTrend">
+              <i class="fa-solid fa-arrow-trend-up"></i> —
+            </span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-card__icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__value" id="anaNewListings">0</span>
+            <span class="kpi-card__label">New Listings (30d)</span>
+            <span class="kpi-card__trend kpi-card__trend--up" id="anaNewListingsTrend">
+              <i class="fa-solid fa-arrow-trend-up"></i> —
+            </span>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-card__icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+          <div class="kpi-card__body">
+            <span class="kpi-card__value" id="anaSearches">0</span>
+            <span class="kpi-card__label">Searches (30d)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Growth chart placeholder -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+            User Growth
+          </h2>
+        </div>
+        <div class="chart-placeholder" id="growthChart" aria-label="User growth chart">
+          <div class="chart-placeholder__bars" id="chartBars">
+            <!-- Bars generated by JS -->
+          </div>
+          <div class="chart-placeholder__x-labels" id="chartLabels">
+            <!-- Labels generated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Category breakdown -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-tags" aria-hidden="true"></i>
+            Most Searched Categories
+          </h2>
+        </div>
+        <div class="category-breakdown" id="categoryBreakdown">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </section><!-- /sectionAnalytics -->
+
+
+    <!-- ============================================================
+         SECTION: SETTINGS
+    ============================================================ -->
+    <section class="admin-section" id="sectionSettings" aria-label="Admin settings" hidden>
+
+      <div class="section-header">
+        <div>
+          <h1 class="section-title">Settings</h1>
+          <p class="section-sub">Platform configuration and preferences.</p>
+        </div>
+      </div>
+
+      <!-- Platform settings -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-sliders" aria-hidden="true"></i>
+            Platform Settings
+          </h2>
+        </div>
+        <div class="settings-list">
+
+          <!-- Launch mode -->
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--green">
+              <i class="fa-solid fa-rocket" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">Launch Mode</p>
+              <p class="settings-row__sub">Platform is live and accepting new users.</p>
+            </div>
+            <label class="toggle-switch" aria-label="Launch mode">
+              <input type="checkbox" class="toggle-switch__input" id="launchMode" checked />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <!-- Maintenance mode -->
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--orange">
+              <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">Maintenance Mode</p>
+              <p class="settings-row__sub">Show a maintenance page to all users. Admin access only.</p>
+            </div>
+            <label class="toggle-switch" aria-label="Maintenance mode">
+              <input type="checkbox" class="toggle-switch__input" id="maintenanceMode" />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <!-- New user registrations -->
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--purple">
+              <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">New Registrations</p>
+              <p class="settings-row__sub">Allow new users to sign up on JARA.</p>
+            </div>
+            <label class="toggle-switch" aria-label="New registrations">
+              <input type="checkbox" class="toggle-switch__input" id="newRegistrations" checked />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <!-- Email verification required -->
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--blue">
+              <i class="fa-solid fa-envelope-circle-check" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">Email Verification Required</p>
+              <p class="settings-row__sub">Users must verify email before logging in.</p>
+            </div>
+            <label class="toggle-switch" aria-label="Email verification required">
+              <input type="checkbox" class="toggle-switch__input" id="emailVerification" checked />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Notification settings -->
+      <div class="admin-card">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-bell" aria-hidden="true"></i>
+            Notification Settings
+          </h2>
+        </div>
+        <div class="settings-list">
+
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--purple">
+              <i class="fa-solid fa-flag" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">Report Alerts</p>
+              <p class="settings-row__sub">Notify admin when a listing is reported.</p>
+            </div>
+            <label class="toggle-switch" aria-label="Report alerts">
+              <input type="checkbox" class="toggle-switch__input" id="reportAlerts" checked />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--green">
+              <i class="fa-solid fa-user-check" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">Verification Requests</p>
+              <p class="settings-row__sub">Notify admin when a user requests verification.</p>
+            </div>
+            <label class="toggle-switch" aria-label="Verification requests">
+              <input type="checkbox" class="toggle-switch__input" id="verificationAlerts" checked />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--gold">
+              <i class="fa-solid fa-crown" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">New PRO Subscriptions</p>
+              <p class="settings-row__sub">Notify admin of new PRO payment confirmations.</p>
+            </div>
+            <label class="toggle-switch" aria-label="PRO subscription alerts">
+              <input type="checkbox" class="toggle-switch__input" id="proAlerts" checked />
+              <span class="toggle-switch__track" aria-hidden="true"></span>
+            </label>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="admin-card admin-card--danger">
+        <div class="admin-card__header">
+          <h2 class="admin-card__title">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            Danger Zone
+          </h2>
+        </div>
+        <div class="settings-list">
+          <div class="settings-row">
+            <div class="settings-row__icon settings-row__icon--red">
+              <i class="fa-solid fa-trash" aria-hidden="true"></i>
+            </div>
+            <div class="settings-row__content">
+              <p class="settings-row__label">Clear Placeholder Data</p>
+              <p class="settings-row__sub">Remove all demo listings from the platform.</p>
+            </div>
+            <button class="admin-btn admin-btn--danger admin-btn--sm" type="button" disabled>
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </section><!-- /sectionSettings -->
+
+  </main><!-- /admin-main -->
+
+
+  <!-- ==============================
+       ACTION CONFIRMATION MODAL
+  ============================== -->
+  <div class="admin-modal" id="confirmModal" aria-modal="true" role="dialog" aria-label="Confirm action" hidden>
+    <div class="admin-modal__backdrop" id="modalBackdrop"></div>
+    <div class="admin-modal__panel">
+      <div class="admin-modal__header">
+        <h3 class="admin-modal__title" id="modalTitle">Confirm Action</h3>
+        <button class="admin-modal__close" id="modalClose" type="button" aria-label="Close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <p class="admin-modal__body" id="modalBody">Are you sure?</p>
+      <div class="admin-modal__actions">
+        <button class="admin-btn admin-btn--ghost" id="modalCancel" type="button">Cancel</button>
+        <button class="admin-btn admin-btn--danger" id="modalConfirm" type="button">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/admin.js"></script>
+</body>
+  </html>
