@@ -1,198 +1,197 @@
 /* ============================================================
-   JARA ∆ — Admin Panel Logic
+   JARA ∆ — Admin Dashboard v2
    js/admin.js
 
    Depends on:
      - window._supabase  (js/supabase-client.js)
      - DOM in admin/index.html
 
-   SECURITY NOTE:
-   ─────────────────────────────────────────────────────────────
-   This page guards itself by checking that the logged-in user
-   has admin status. The real enforcement must ALSO happen at
-   the database level via Supabase RLS policies and a
-   separate `admin_users` table or a role column.
-   Never rely only on frontend checks for security.
-   ─────────────────────────────────────────────────────────────
-
    TABLE OF CONTENTS
-   1.  Constants — placeholder data
+   1.  Placeholder data
    2.  State
-   3.  Auth guard — admin only
-   4.  Sidebar navigation
-   5.  Mobile sidebar toggle
-   6.  Section renderer
-   7.  Overview section
-   8.  KPI cards
-   9.  Activity feed
-   10. Users section
+   3.  Auth guard
+   4.  Sidebar + mobile nav
+   5.  Section router
+   6.  Home — greeting + attention line
+   7.  Home — KPI cards
+   8.  Home — Command Queue
+   9.  Home — Quick Actions
+   10. Home — System Health
    11. Businesses section
-   12. Listings section
-   13. Founding Members section
-   14. JARA PRO section
-   15. Announcements section
-   16. Analytics section
-   17. Settings section
-   18. Confirmation modal
-   19. Utility helpers
-   20. Init
+   12. Users section
+   13. Listings section
+   14. Founding Members section
+   15. JARA PRO section
+   16. Reports section
+   17. Announcements section
+   18. Analytics section
+   19. Settings section
+   20. Confirm modal
+   21. Utility helpers
+   22. Init
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
 
-
   /* ==========================================================
-     1. CONSTANTS — PLACEHOLDER DATA
-     Each block is labelled with its future Supabase query.
+     1. PLACEHOLDER DATA
   ========================================================== */
 
-  /* FUTURE: SELECT COUNT(*) per type from profiles table */
-  const PLACEHOLDER_KPI = [
-    { id: 'totalUsers',       icon: 'fa-solid fa-users',          label: 'Total Members',        value: 247,  accent: 'accent' },
-    { id: 'totalBusinesses',  icon: 'fa-solid fa-store',          label: 'Businesses',           value: 38,   accent: '' },
-    { id: 'totalListings',    icon: 'fa-solid fa-box',            label: 'Total Listings',       value: 614,  accent: '' },
-    { id: 'totalProducts',    icon: 'fa-solid fa-tag',            label: 'Products',             value: 312,  accent: '' },
-    { id: 'totalServices',    icon: 'fa-solid fa-screwdriver-wrench', label: 'Services',         value: 189,  accent: '' },
-    { id: 'totalRequests',    icon: 'fa-solid fa-bullhorn',       label: 'Requests',             value: 113,  accent: '' },
-    { id: 'verifiedUsers',    icon: 'fa-solid fa-circle-check',   label: 'Verified Users',       value: 12,   accent: 'green' },
-    { id: 'pendingVerif',     icon: 'fa-solid fa-clock',          label: 'Pending Verifications',value: 5,    accent: '' },
-    { id: 'reportedListings', icon: 'fa-solid fa-flag',           label: 'Reported Listings',    value: 3,    accent: 'red' },
-    { id: 'foundingMembers',  icon: 'fa-solid fa-medal',          label: 'Founding Members',     value: 12,   accent: '' },
-    { id: 'proMembers',       icon: 'fa-solid fa-crown',          label: 'JARA PRO Members',     value: 7,    accent: 'gold' },
-    { id: 'verifiedBiz',      icon: 'fa-solid fa-badge-check',    label: 'Verified Businesses',  value: 8,    accent: '' },
-  ];
-
-  /* FUTURE: SELECT * FROM profiles ORDER BY created_at DESC LIMIT 20 */
-  const PLACEHOLDER_USERS = [
-    { id: 'u1',  name: 'Precious Okafor',  email: 'precious@jara.app',    jaraId: 'JARA-00001', type: 'student',      status: 'verified',  joined: '10 Jan 2025' },
-    { id: 'u2',  name: 'Blessing Adeyemi', email: 'blessing@example.com', jaraId: 'JARA-00042', type: 'business',     status: 'verified',  joined: '12 Jan 2025' },
-    { id: 'u3',  name: 'Emeka Johnson',    email: 'emeka@example.com',    jaraId: 'JARA-00018', type: 'seller',       status: 'pending',   joined: '14 Jan 2025' },
-    { id: 'u4',  name: 'Adaeze Okonkwo',   email: 'adaeze@example.com',   jaraId: 'JARA-00066', type: 'student',      status: 'verified',  joined: '16 Jan 2025' },
-    { id: 'u5',  name: 'Zainab Mohammed',  email: 'zainab@example.com',   jaraId: 'JARA-00031', type: 'professional', status: 'pending',   joined: '18 Jan 2025' },
-    { id: 'u6',  name: 'Fatima Kola',      email: 'fatima@example.com',   jaraId: 'JARA-00099', type: 'student',      status: 'verified',  joined: '20 Jan 2025' },
-    { id: 'u7',  name: 'Tunde Eze',        email: 'tunde@example.com',    jaraId: 'JARA-00112', type: 'seller',       status: 'suspended', joined: '22 Jan 2025' },
-  ];
-
   /* FUTURE: SELECT * FROM profiles WHERE account_type IN ('business','service_provider') */
-  const PLACEHOLDER_BIZ = [
-    { id: 'b1', name: "Blessing's Kitchen", owner: 'Blessing Adeyemi', category: 'Food & Drinks', status: 'verified', joined: '12 Jan 2025' },
-    { id: 'b2', name: 'ZM Creative Studio', owner: 'Zainab Mohammed',  category: 'Creative Services', status: 'pending', joined: '18 Jan 2025' },
-    { id: 'b3', name: 'Emeka Power Rentals', owner: 'Emeka Johnson',   category: 'Power & Generator', status: 'pending', joined: '14 Jan 2025' },
-    { id: 'b4', name: 'Kemi Laundry',       owner: 'Kemi Fashola',     category: 'Laundry & Errands', status: 'verified', joined: '9 Jan 2025' },
+  const DATA_BIZ = [
+    { id:'b1', name:"Blessing's Kitchen",   owner:'Blessing Adeyemi', category:'Food & Drinks',     status:'verified',  isPro:true  },
+    { id:'b2', name:'ZM Creative Studio',   owner:'Zainab Mohammed',  category:'Creative Services', status:'pending',   isPro:false },
+    { id:'b3', name:'Emeka Power Rentals',  owner:'Emeka Johnson',    category:'Power & Generator', status:'pending',   isPro:false },
+    { id:'b4', name:'Kemi Laundry',         owner:'Kemi Fashola',     category:'Laundry & Errands', status:'verified',  isPro:false },
+    { id:'b5', name:'David Prints',         owner:'David Kolawole',   category:'Printing & Typing', status:'suspended', isPro:false },
   ];
 
-  /* FUTURE: SELECT * FROM products UNION ALL services UNION ALL requests ORDER BY created_at DESC LIMIT 20 */
-  const PLACEHOLDER_LISTINGS = [
-    { id: 'p1', title: 'Honda Generator 2.5KVA', type: 'product', seller: 'Emeka J.', status: 'active', views: 89 },
-    { id: 's2', title: 'Graphic Design — Flyers & Logos', type: 'service', seller: 'Zainab M.', status: 'active', views: 134 },
-    { id: 'p3', title: 'Fairly Used iPhone 12', type: 'product', seller: 'Hassan B.', status: 'active', views: 67 },
-    { id: 'rq1', title: 'Need generator tonight', type: 'request', seller: 'Anonymous', status: 'active', views: 12 },
-    { id: 's4', title: 'Assignment Typing', type: 'service', seller: 'David K.', status: 'active', views: 45 },
+  /* FUTURE: SELECT * FROM profiles ORDER BY created_at DESC */
+  const DATA_USERS = [
+    { id:'u1', name:'Precious Okafor',  jaraId:'JARA-00001', type:'student',      status:'verified',  isFounder:true  },
+    { id:'u2', name:'Adaeze Okonkwo',   jaraId:'JARA-00066', type:'student',      status:'verified',  isFounder:false },
+    { id:'u3', name:'Tunde Eze',        jaraId:'JARA-00112', type:'seller',       status:'suspended', isFounder:false },
+    { id:'u4', name:'Fatima Kola',      jaraId:'JARA-00099', type:'student',      status:'pending',   isFounder:false },
+    { id:'u5', name:'Hassan Bello',     jaraId:'JARA-00077', type:'student',      status:'pending',   isFounder:false },
+    { id:'u6', name:'Ngozi Adeleke',    jaraId:'JARA-00134', type:'professional', status:'verified',  isFounder:true  },
   ];
 
-  /* FUTURE: SELECT * FROM reports WHERE status = 'pending' ORDER BY created_at DESC */
-  const PLACEHOLDER_REPORTS = [
-    { id: 'r1', title: 'Suspicious Generator Listing', reason: 'Possible scam — price too good', reporter: 'Anonymous', time: '2 hours ago' },
-    { id: 'r2', title: 'Profile: Unknown User', reason: 'Fake identity, no school affiliation', reporter: 'Tunde E.', time: '5 hours ago' },
-    { id: 'r3', title: 'Service: Laptop Repair', reason: 'Charged and disappeared', reporter: 'Adaeze O.', time: '1 day ago' },
+  /* FUTURE: SELECT * FROM products UNION ALL services UNION ALL requests */
+  const DATA_LISTINGS = [
+    { id:'p1', title:'Honda Generator 2.5KVA',       type:'product', seller:'Emeka J.',   views:89 },
+    { id:'s2', title:'Graphic Design — Flyers',      type:'service', seller:'Zainab M.',  views:134 },
+    { id:'p3', title:'Fairly Used iPhone 12',        type:'product', seller:'Hassan B.',  views:67 },
+    { id:'r1', title:'Need generator tonight',       type:'request', seller:'Anonymous',  views:12 },
+    { id:'s4', title:'Assignment Typing Service',    type:'service', seller:'David K.',   views:45 },
   ];
 
-  /* FUTURE: SELECT * FROM profiles WHERE is_founding_member = TRUE ORDER BY created_at ASC */
-  const PLACEHOLDER_FOUNDING = [
-    { id: 'f1', name: 'Precious Okafor',  jaraId: 'JARA-00001', awarded: '10 Jan 2025' },
-    { id: 'f2', name: 'Blessing Adeyemi', jaraId: 'JARA-00042', awarded: '12 Jan 2025' },
-    { id: 'f3', name: 'Adaeze Okonkwo',   jaraId: 'JARA-00066', awarded: '16 Jan 2025' },
-    { id: 'f4', name: 'Fatima Kola',      jaraId: 'JARA-00099', awarded: '20 Jan 2025' },
+  /* FUTURE: SELECT * FROM profiles WHERE is_founding_member = TRUE */
+  const DATA_FOUNDING = [
+    { id:'f1', name:'Precious Okafor',  jaraId:'JARA-00001', awarded:'10 Jan 2025' },
+    { id:'f2', name:'Adaeze Okonkwo',   jaraId:'JARA-00066', awarded:'16 Jan 2025' },
+    { id:'f3', name:'Ngozi Adeleke',    jaraId:'JARA-00134', awarded:'20 Jan 2025' },
   ];
 
-  /* FUTURE: SELECT * FROM premium_subscriptions WHERE status IN ('active','expired') ORDER BY created_at DESC */
-  const PLACEHOLDER_PRO = [
-    { id: 'pr1', name: 'Blessing Adeyemi', plan: 'Monthly',   expires: '28 Feb 2025', status: 'active'  },
-    { id: 'pr2', name: 'Zainab Mohammed',  plan: '3 Months',  expires: '10 Apr 2025', status: 'active'  },
-    { id: 'pr3', name: 'Kemi Fashola',     plan: 'Monthly',   expires: '15 Jan 2025', status: 'expired' },
+  const FOUNDING_TOTAL = 100;
+
+  /* FUTURE: SELECT * FROM premium_subscriptions WHERE status = 'pending' */
+  const DATA_PRO_PENDING = [
+    { id:'pp1', name:'David Kolawole', jaraId:'JARA-00112', plan:'Monthly',  amount:'₦1,500', ref:'ZEN240128441', time:'2 hours ago' },
+    { id:'pp2', name:'Ngozi Adeleke',  jaraId:'JARA-00134', plan:'3 Months', amount:'₦3,500', ref:'OPY240127992', time:'5 hours ago' },
   ];
 
-  const PLACEHOLDER_ACTIVITY = [
-    { type: 'user',    icon: 'fa-solid fa-user-plus',      text: '<strong>Adaeze Okonkwo</strong> joined JARA.',            time: '2 min ago' },
-    { type: 'report',  icon: 'fa-solid fa-flag',           text: 'Listing <strong>"Generator for Rent"</strong> reported.', time: '18 min ago' },
-    { type: 'biz',     icon: 'fa-solid fa-store',          text: '<strong>ZM Creative Studio</strong> requested verification.', time: '1 hr ago' },
-    { type: 'pro',     icon: 'fa-solid fa-crown',          text: '<strong>Blessing Adeyemi</strong> subscribed to PRO.',    time: '3 hrs ago' },
-    { type: 'listing', icon: 'fa-solid fa-box',            text: '<strong>12 new listings</strong> created today.',         time: '6 hrs ago' },
-    { type: 'user',    icon: 'fa-solid fa-user-check',     text: '<strong>Fatima Kola</strong> verified their email.',      time: 'Yesterday' },
+  /* FUTURE: SELECT * FROM premium_subscriptions WHERE status = 'active' */
+  const DATA_PRO_ACTIVE = [
+    { id:'pa1', name:"Blessing's Kitchen", jaraId:'JARA-00042', plan:'Monthly',  expires:'28 Feb 2025' },
+    { id:'pa2', name:'ZM Creative Studio', jaraId:'JARA-00031', plan:'3 Months', expires:'10 Apr 2025' },
   ];
 
-  const PLACEHOLDER_SENT_ANN = [
-    { title: 'Welcome to JARA ∆', to: 'All members', time: '10 Jan 2025' },
+  /* FUTURE: SELECT * FROM premium_subscriptions WHERE status = 'expired' */
+  const DATA_PRO_EXPIRED = [
+    { id:'pe1', name:'Kemi Laundry', jaraId:'JARA-00088', plan:'Monthly', expires:'15 Jan 2025' },
   ];
 
-  /* FUTURE: Analytics data from a separate analytics table or aggregation function */
-  const ANALYTICS_CHART_DATA = [8, 14, 11, 22, 19, 31, 28, 36, 42, 38, 55, 61, 48, 70];
-  const ANALYTICS_CHART_LABELS = ['12/1','13/1','14/1','15/1','16/1','17/1','18/1','19/1','20/1','21/1','22/1','23/1','24/1','25/1'];
-  const ANALYTICS_CATEGORIES = [
-    { name: 'Generator',    searches: 284 },
-    { name: 'Laundry',      searches: 221 },
-    { name: 'Food',         searches: 198 },
-    { name: 'Laptop Repair',searches: 167 },
-    { name: 'Printing',     searches: 134 },
-    { name: 'Books',        searches: 112 },
-    { name: 'Tutoring',     searches: 98  },
-    { name: 'Haircut',      searches: 87  },
+  /* FUTURE: SELECT * FROM reports WHERE status = 'pending' */
+  const DATA_REPORTS = [
+    { id:'r1', title:'Suspicious Generator Listing', reason:'Possible scam — price too good to be true', reporter:'Anonymous',    time:'2 hours ago' },
+    { id:'r2', title:'Profile: Unknown User',        reason:'Fake identity, no school affiliation',      reporter:'Tunde E.',     time:'5 hours ago' },
+    { id:'r3', title:'Service: Laptop Repair',       reason:'Charged and disappeared',                   reporter:'Adaeze O.',    time:'1 day ago'   },
+  ];
+
+  /* FUTURE: Aggregated from multiple tables */
+  const DATA_KPI = [
+    { id:'kNewUsers',   icon:'fa-solid fa-user-plus',    label:'New Users Today',         value:8,   iconCls:''       },
+    { id:'kBizPending', icon:'fa-solid fa-store',        label:'Biz Awaiting Verif.',     value:2,   iconCls:'--warn' },
+    { id:'kStudents',   icon:'fa-solid fa-graduation-cap',label:'Student Verifications',   value:5,   iconCls:''       },
+    { id:'kProPending', icon:'fa-solid fa-crown',        label:'Pending PRO',             value:2,   iconCls:'--gold' },
+    { id:'kReports',    icon:'fa-solid fa-flag',         label:'Pending Reports',         value:3,   iconCls:'--red'  },
+    { id:'kTotalUsers', icon:'fa-solid fa-users',        label:'Total Members',           value:247, iconCls:''       },
+    { id:'kTotalBiz',   icon:'fa-solid fa-buildings',    label:'Total Businesses',        value:38,  iconCls:''       },
+    { id:'kListings',   icon:'fa-solid fa-box',          label:'Total Listings',          value:614, iconCls:''       },
+    { id:'kProActive',  icon:'fa-solid fa-crown',        label:'Active PRO',              value:7,   iconCls:'--gold' },
+    { id:'kFounding',   icon:'fa-solid fa-medal',        label:'Founding Members',        value:3,   iconCls:''       },
+  ];
+
+  /* Queue tasks — processed 4 at a time */
+  const QUEUE_TASKS = [
+    { id:'q1', type:'biz',    icon:'fa-solid fa-store',      iconCls:'--biz',    title:'Verify: ZM Creative Studio',    sub:'Business verification pending',    action:'verify_biz',  target:'b2', targetName:'ZM Creative Studio'  },
+    { id:'q2', type:'biz',    icon:'fa-solid fa-store',      iconCls:'--biz',    title:'Verify: Emeka Power Rentals',   sub:'Business verification pending',    action:'verify_biz',  target:'b3', targetName:'Emeka Power Rentals' },
+    { id:'q3', type:'pro',    icon:'fa-solid fa-crown',      iconCls:'--pro',    title:'Approve PRO: David Kolawole',   sub:'Monthly · ₦1,500 · Ref: ZEN240128441', action:'approve_pro', target:'pp1', targetName:'David Kolawole' },
+    { id:'q4', type:'report', icon:'fa-solid fa-flag',       iconCls:'--report', title:'Review Report: Generator Listing', sub:'Reported: Possible scam',       action:'dismiss_report', target:'r1', targetName:'Generator Listing' },
+    { id:'q5', type:'user',   icon:'fa-solid fa-user-check', iconCls:'--user',   title:'Verify: Fatima Kola',           sub:'Student verification pending',     action:'verify_user', target:'u4', targetName:'Fatima Kola'      },
+    { id:'q6', type:'pro',    icon:'fa-solid fa-crown',      iconCls:'--pro',    title:'Approve PRO: Ngozi Adeleke',    sub:'3 Months · ₦3,500 · Ref: OPY240127992', action:'approve_pro', target:'pp2', targetName:'Ngozi Adeleke' },
+  ];
+
+  const ANALYTICS_CHART = [6,11,9,18,24,29,22,37,44,38,52,61,49,70];
+  const ANALYTICS_LABELS = ['12','13','14','15','16','17','18','19','20','21','22','23','24','25'];
+  const ANALYTICS_CATS   = [
+    { name:'Generator',    n:284 },
+    { name:'Laundry',      n:221 },
+    { name:'Food',         n:198 },
+    { name:'Printing',     n:167 },
+    { name:'Tutoring',     n:134 },
+    { name:'Haircut',      n:98  },
+  ];
+
+  const HEALTH_ITEMS = [
+    { name:'Database',       status:'Operational', color:'green' },
+    { name:'Auth',           status:'Operational', color:'green' },
+    { name:'Storage',        status:'Operational', color:'green' },
+    { name:'Website',        status:'Operational', color:'green' },
+    { name:'Payments',       status:'Operational', color:'green' },
+    { name:'Email',          status:'Operational', color:'green' },
+  ];
+
+  const PLATFORM_TOGGLES = [
+    { id:'tog_launch',   icon:'fa-solid fa-rocket',                 cls:'green',  label:'Launch Mode',             sub:'Platform is live.',                checked:true  },
+    { id:'tog_maint',    icon:'fa-solid fa-triangle-exclamation',   cls:'orange', label:'Maintenance Mode',        sub:'Show maintenance page to users.',   checked:false },
+    { id:'tog_reg',      icon:'fa-solid fa-user-plus',              cls:'purple', label:'New Registrations',       sub:'Allow new users to sign up.',       checked:true  },
+    { id:'tog_email',    icon:'fa-solid fa-envelope-circle-check',  cls:'blue',   label:'Email Verification',      sub:'Require email before login.',       checked:true  },
+  ];
+
+  const NOTIF_TOGGLES = [
+    { id:'ntog_reports', icon:'fa-solid fa-flag',      cls:'red',    label:'Report Alerts',         sub:'Notify on new reports.',            checked:true  },
+    { id:'ntog_pro',     icon:'fa-solid fa-crown',     cls:'gold',   label:'PRO Payments',          sub:'Notify on new PRO requests.',       checked:true  },
+    { id:'ntog_security',icon:'fa-solid fa-shield-halved',cls:'blue',label:'Security Alerts',       sub:'Unusual login attempts.',           checked:true  },
   ];
 
 
   /* ==========================================================
      2. STATE
   ========================================================== */
-  const state = {
-    activeSection:  'overview',
-    userFilter:     'all',
-    listingFilter:  'all',
-    userId:         null,
-    modalAction:    null,   // { action, targetId, label }
+  const S = {
+    section:       'home',
+    userId:        null,
+    queueIndex:    0,       // pointer into QUEUE_TASKS
+    queueVisible:  [],      // IDs currently visible in queue
+    pendingModal:  null,    // { action, target, targetName, onConfirm }
+    bizFilter:     'all',
+    userFilter:    'all',
+    listingFilter: 'all',
+    proTab:        'pending',
   };
+
+  const QUEUE_MAX = 4;
 
 
   /* ==========================================================
-     3. AUTH GUARD — ADMIN ONLY
-     ─────────────────────────────────────────────────────────
-     FUTURE: Add a column `is_admin BOOLEAN DEFAULT FALSE` to
-     the profiles table, or create a separate `admin_users`
-     table. Then check:
-       SELECT is_admin FROM profiles WHERE id = auth.uid()
-     If FALSE → redirect to explore.
-     ─────────────────────────────────────────────────────────
+     3. AUTH GUARD
+     FUTURE: Uncomment the is_admin check once the column exists.
   ========================================================== */
-
-  async function adminGuard() {
+  async function authGuard() {
     try {
       const { data: { session } } = await window._supabase.auth.getSession();
-
-      if (!session) {
-        window.location.href = '../auth/login.html';
-        return false;
-      }
-
-      state.userId = session.user.id;
+      if (!session) { window.location.href = '../auth/login.html'; return false; }
+      S.userId = session.user.id;
 
       /*
-       FUTURE: Uncomment this block when the is_admin column exists:
-
-       const { data: profile, error } = await window._supabase
-         .from('profiles')
-         .select('is_admin')
-         .eq('id', state.userId)
-         .single();
-
-       if (error || !profile?.is_admin) {
-         window.location.href = '../explore/index.html';
-         return false;
-       }
+       FUTURE:
+       const { data: profile } = await window._supabase
+         .from('profiles').select('is_admin').eq('id', S.userId).single();
+       if (!profile?.is_admin) { window.location.href = '../explore/index.html'; return false; }
       */
-
       return true;
-
-    } catch (err) {
-      console.error('JARA admin guard error:', err);
+    } catch {
       window.location.href = '../auth/login.html';
       return false;
     }
@@ -200,306 +199,332 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   /* ==========================================================
-     4. SIDEBAR NAVIGATION
+     4. SIDEBAR + MOBILE NAV
   ========================================================== */
+  const sidebar  = document.getElementById('aSidebar');
+  const overlay  = document.getElementById('aOverlay');
+  const menuBtn  = document.getElementById('menuBtn');
 
-  const sidebarLinks = document.querySelectorAll('.sidebar-link');
+  function openSidebar()  { sidebar.classList.add('is-open');     overlay.classList.add('is-visible');  menuBtn?.setAttribute('aria-expanded','true'); }
+  function closeSidebar() { sidebar.classList.remove('is-open');  overlay.classList.remove('is-visible'); menuBtn?.setAttribute('aria-expanded','false'); }
 
-  sidebarLinks.forEach(link => {
-    link.addEventListener('click', (e) => {
+  menuBtn?.addEventListener('click', () =>
+    sidebar.classList.contains('is-open') ? closeSidebar() : openSidebar()
+  );
+  overlay.addEventListener('click', closeSidebar);
+
+  document.querySelectorAll('.a-nav__link').forEach(link => {
+    link.addEventListener('click', e => {
       e.preventDefault();
-      const section = link.dataset.section;
-      if (section) switchSection(section);
-      // Close mobile sidebar after navigation
-      closeMobileSidebar();
+      goTo(link.dataset.section);
+      closeSidebar();
     });
   });
 
-  // Quick action buttons on overview
-  document.querySelectorAll('.quick-action[data-section]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const section = btn.dataset.section;
-      if (section) switchSection(section);
-    });
+  document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+    await window._supabase.auth.signOut();
+    window.location.href = '../auth/login.html';
   });
 
-  function switchSection(sectionName) {
-    state.activeSection = sectionName;
-
-    // Update sidebar links
-    sidebarLinks.forEach(link => {
-      link.classList.toggle('sidebar-link--active', link.dataset.section === sectionName);
-    });
-
-    // Update panels
-    document.querySelectorAll('.admin-section').forEach(panel => {
-      const id = `section${capitalise(sectionName)}`;
-      if (panel.id === id) {
-        panel.removeAttribute('hidden');
-        panel.classList.add('admin-section--active');
-      } else {
-        panel.setAttribute('hidden', '');
-        panel.classList.remove('admin-section--active');
-      }
-    });
-
-    // Scroll to top
-    document.querySelector('.admin-main')?.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
 
   /* ==========================================================
-     5. MOBILE SIDEBAR TOGGLE
+     5. SECTION ROUTER
   ========================================================== */
+  const SECTION_MAP = {
+    home:          'secHome',
+    businesses:    'secBusinesses',
+    users:         'secUsers',
+    listings:      'secListings',
+    founding:      'secFounding',
+    pro:           'secPro',
+    reports:       'secReports',
+    announcements: 'secAnnouncements',
+    analytics:     'secAnalytics',
+    settings:      'secSettings',
+  };
 
-  const sidebarToggle  = document.getElementById('sidebarToggle');
-  const adminSidebar   = document.getElementById('adminSidebar');
-  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  const RENDER_MAP = {
+    home:          renderHome,
+    businesses:    renderBusinesses,
+    users:         renderUsers,
+    listings:      renderListings,
+    founding:      renderFounding,
+    pro:           renderPro,
+    reports:       renderReports,
+    announcements: renderAnnouncements,
+    analytics:     renderAnalytics,
+    settings:      renderSettings,
+  };
 
-  function openMobileSidebar() {
-    adminSidebar.classList.add('is-open');
-    sidebarOverlay.classList.add('is-visible');
-    sidebarToggle.setAttribute('aria-expanded', 'true');
-    document.body.style.overflow = 'hidden';
+  function goTo(section) {
+    if (!SECTION_MAP[section]) return;
+    S.section = section;
+
+    document.querySelectorAll('.a-section').forEach(el => {
+      el.hidden = true;
+      el.classList.remove('a-section--active');
+    });
+
+    const target = document.getElementById(SECTION_MAP[section]);
+    target.hidden = false;
+    target.classList.add('a-section--active');
+
+    document.querySelectorAll('.a-nav__link').forEach(l => {
+      l.classList.toggle('a-nav__link--active', l.dataset.section === section);
+    });
+
+    RENDER_MAP[section]?.();
+    document.querySelector('.a-main')?.scrollTo({ top:0, behavior:'smooth' });
   }
 
-  function closeMobileSidebar() {
-    adminSidebar.classList.remove('is-open');
-    sidebarOverlay.classList.remove('is-visible');
-    sidebarToggle.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
-  }
-
-  sidebarToggle.addEventListener('click', () => {
-    const isOpen = adminSidebar.classList.contains('is-open');
-    isOpen ? closeMobileSidebar() : openMobileSidebar();
+  // Quick action buttons on home
+  document.querySelectorAll('.qa-btn[data-section]').forEach(btn => {
+    btn.addEventListener('click', () => goTo(btn.dataset.section));
   });
 
-  sidebarOverlay.addEventListener('click', closeMobileSidebar);
-
 
   /* ==========================================================
-     6. SECTION RENDERER — calls the right render function
+     6. HOME — GREETING + ATTENTION LINE
   ========================================================== */
 
-  function renderSection(section) {
-    const renders = {
-      overview:      renderOverview,
-      users:         renderUsers,
-      businesses:    renderBusinesses,
-      listings:      renderListings,
-      founding:      renderFounding,
-      pro:           renderPro,
-      announcements: renderAnnouncements,
-      analytics:     renderAnalytics,
-      settings:      renderSettings,
-    };
-    renders[section]?.();
-  }
-
-
-  /* ==========================================================
-     7. OVERVIEW SECTION
-  ========================================================== */
-
-  function renderOverview() {
-    // Greeting
+  function renderGreeting() {
     const hour = new Date().getHours();
-    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-    const el = document.getElementById('overviewGreeting');
-    if (el) el.textContent = `${greeting}, Precious 👋`;
-
-    // Status bar time
-    const timeEl = document.getElementById('statusTime');
-    if (timeEl) {
-      timeEl.textContent = new Date().toLocaleString('en-NG', {
-        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-      });
+    const label = document.getElementById('greetingLabel');
+    if (label) {
+      label.textContent =
+        hour < 12 ? 'Good morning,' :
+        hour < 17 ? 'Good afternoon,' :
+        'Good evening,';
     }
 
-    // KPI grid
-    renderKPIGrid();
+    // Build attention message dynamically
+    const pending  = DATA_PRO_PENDING.length;
+    const reports  = DATA_REPORTS.length;
+    const bizPend  = DATA_BIZ.filter(b => b.status === 'pending').length;
+    const userPend = DATA_USERS.filter(u => u.status === 'pending').length;
+    const total    = pending + reports + bizPend + userPend;
 
-    // Activity feed
-    renderActivityFeed();
+    let msg = '';
+    if      (total === 0)    msg = 'You\'re all caught up. Everything is running smoothly.';
+    else if (reports > 0)    msg = `${reports} report${reports > 1 ? 's' : ''} require${reports === 1 ? 's' : ''} your review.`;
+    else if (pending > 0)    msg = `${pending} PRO payment${pending > 1 ? 's' : ''} awaiting approval.`;
+    else if (bizPend > 0)    msg = `${bizPend} ${bizPend === 1 ? 'business' : 'businesses'} waiting for verification.`;
+    else if (userPend > 0)   msg = `${userPend} member${userPend > 1 ? 's' : ''} pending verification.`;
+    else                     msg = `${total} operation${total > 1 ? 's' : ''} require${total === 1 ? 's' : ''} your attention today.`;
 
-    // Update sidebar badges
-    const pendingBadge = document.getElementById('pendingVerifBadge');
-    const reportsBadge = document.getElementById('reportsBadge');
-    if (pendingBadge) pendingBadge.textContent = 5;
-    if (reportsBadge) reportsBadge.textContent = PLACEHOLDER_REPORTS.length;
+    const attnEl = document.getElementById('greetingAttention');
+    if (attnEl) {
+      attnEl.style.opacity = '0';
+      setTimeout(() => {
+        attnEl.textContent  = msg;
+        attnEl.style.opacity = '1';
+      }, 200);
+    }
+
+    // Nav dots
+    const bizDot    = document.getElementById('bizDot');
+    const proDot    = document.getElementById('proDot');
+    const reportDot = document.getElementById('reportDot');
+    if (bizDot)    { bizDot.hidden    = bizPend === 0; }
+    if (proDot)    { proDot.hidden    = pending === 0; }
+    if (reportDot) { reportDot.hidden = reports === 0; }
   }
 
 
   /* ==========================================================
-     8. KPI CARDS
+     7. HOME — KPI CARDS
   ========================================================== */
 
-  function renderKPIGrid() {
+  function renderKPI() {
     const grid = document.getElementById('kpiGrid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    const accentCls = { accent: 'kpi-card--accent', gold: 'kpi-card--gold', red: 'kpi-card--red', green: 'kpi-card--green' };
-
-    PLACEHOLDER_KPI.forEach((item, i) => {
+    DATA_KPI.forEach((item, i) => {
       const card = document.createElement('div');
-      card.className = `kpi-card ${accentCls[item.accent] || ''}`;
-      card.style.animationDelay = `${i * 40}ms`;
+      card.className = 'kpi-card';
+      card.style.animationDelay = `${i * 35}ms`;
 
       card.innerHTML = `
-        <div class="kpi-card__icon"><i class="${item.icon}" aria-hidden="true"></i></div>
-        <div class="kpi-card__body">
-          <span class="kpi-card__value" id="${item.id}">0</span>
-          <span class="kpi-card__label">${escapeHTML(item.label)}</span>
+        <div class="kpi-card__icon kpi-card__icon${item.iconCls || ''}">
+          <i class="${item.icon}" aria-hidden="true"></i>
         </div>
+        <span class="kpi-card__value" id="${item.id}">0</span>
+        <span class="kpi-card__label">${esc(item.label)}</span>
       `;
-
       grid.appendChild(card);
-
-      // Count-up animation
       requestAnimationFrame(() => countUp(document.getElementById(item.id), item.value));
     });
   }
 
-  function countUp(el, target) {
-    if (!el) return;
-    let current = 0;
-    const step  = Math.max(1, Math.ceil(target / 20));
-    const timer = setInterval(() => {
-      current = Math.min(current + step, target);
-      el.textContent = current.toLocaleString();
-      if (current >= target) clearInterval(timer);
-    }, 40);
-  }
-
 
   /* ==========================================================
-     9. ACTIVITY FEED
+     8. HOME — COMMAND QUEUE
   ========================================================== */
 
-  function renderActivityFeed() {
-    const feed = document.getElementById('activityFeed');
-    if (!feed) return;
-    feed.innerHTML = '';
+  function renderQueue() {
+    const list = document.getElementById('queueList');
+    const countEl = document.getElementById('queueCount');
+    if (!list) return;
 
-    const typeClass = { user: 'user', report: 'report', biz: 'biz', listing: 'listing', pro: 'pro' };
+    list.innerHTML = '';
+    S.queueVisible = [];
+    S.queueIndex   = 0;
 
-    PLACEHOLDER_ACTIVITY.forEach((item, i) => {
-      const el = document.createElement('div');
-      el.className = 'activity-item';
-      el.style.animationDelay = `${i * 40}ms`;
-
-      el.innerHTML = `
-        <div class="activity-item__dot activity-item__dot--${typeClass[item.type] || 'user'}">
-          <i class="${item.icon}" aria-hidden="true"></i>
-        </div>
-        <div class="activity-item__content">
-          <p class="activity-item__text">${item.text}</p>
-          <p class="activity-item__time">${escapeHTML(item.time)}</p>
-        </div>
-      `;
-
-      feed.appendChild(el);
-    });
-  }
-
-
-  /* ==========================================================
-     10. USERS SECTION
-  ========================================================== */
-
-  function renderUsers() {
-    const tbody  = document.getElementById('usersTableBody');
-    const count  = document.getElementById('userCount');
-    if (!tbody) return;
-
-    const filtered = PLACEHOLDER_USERS.filter(u =>
-      state.userFilter === 'all' ||
-      u.type === state.userFilter ||
-      u.status === state.userFilter ||
-      (state.userFilter === 'pro' && u.isPro)
-    );
-
-    if (count) count.textContent = `${filtered.length} users`;
-
-    tbody.innerHTML = '';
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-tertiary);">No users match this filter.</td></tr>`;
-      return;
+    // Fill up to QUEUE_MAX
+    for (let i = 0; i < Math.min(QUEUE_MAX, QUEUE_TASKS.length); i++) {
+      appendQueueItem(QUEUE_TASKS[i]);
+      S.queueIndex = i + 1;
     }
 
-    filtered.forEach((user, i) => {
-      const initials = getInitials(user.name);
-      const tr = document.createElement('tr');
-      tr.style.animationDelay = `${i * 30}ms`;
+    updateQueueCount(countEl);
 
-      tr.innerHTML = `
-        <td>
-          <div class="table-member">
-            <div class="table-member__avatar">${escapeHTML(initials)}</div>
-            <div class="table-member__info">
-              <p class="table-member__name">${escapeHTML(user.name)}</p>
-              <p class="table-member__email">${escapeHTML(user.email)}</p>
-            </div>
-          </div>
-        </td>
-        <td><code>${escapeHTML(user.jaraId)}</code></td>
-        <td><span class="pill pill--${user.type}">${escapeHTML(capitalise(user.type))}</span></td>
-        <td><span class="pill pill--${user.status}">${escapeHTML(capitalise(user.status))}</span></td>
-        <td>${escapeHTML(user.joined)}</td>
-        <td>
-          <div class="table-actions">
-            ${user.status !== 'verified'
-              ? `<button class="table-btn table-btn--verify"
-                   data-action="verify" data-id="${user.id}" data-name="${escapeHTML(user.name)}">
-                   Verify
-                 </button>`
-              : ''
-            }
-            ${user.status !== 'suspended'
-              ? `<button class="table-btn table-btn--suspend"
-                   data-action="suspend" data-id="${user.id}" data-name="${escapeHTML(user.name)}">
-                   Suspend
-                 </button>`
-              : `<button class="table-btn table-btn--verify"
-                   data-action="unsuspend" data-id="${user.id}" data-name="${escapeHTML(user.name)}">
-                   Unsuspend
-                   </button>`
-            }
-            <button class="table-btn table-btn--delete"
-              data-action="delete_user" data-id="${user.id}" data-name="${escapeHTML(user.name)}">
-              Delete
-            </button>
-          </div>
-        </td>
-      `;
-
-      tbody.appendChild(tr);
-    });
-
-    attachTableBtnListeners(tbody);
+    if (QUEUE_TASKS.length === 0) showQueueEmpty(list);
   }
 
-  // User filter chips
-  document.querySelectorAll('[data-filter]').forEach(chip => {
-    chip.addEventListener('click', () => {
-      document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('filter-chip--active'));
-      chip.classList.add('filter-chip--active');
-      state.userFilter = chip.dataset.filter;
-      renderUsers();
-    });
-  });
+  function appendQueueItem(task) {
+    const list = document.getElementById('queueList');
+    if (!list) return;
 
-  // User search
-  const userSearch = document.getElementById('userSearch');
-  if (userSearch) {
-    userSearch.addEventListener('input', () => {
-      const q = userSearch.value.trim().toLowerCase();
-      document.querySelectorAll('#usersTableBody tr').forEach(row => {
-        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-      });
+    const item = document.createElement('div');
+    item.className = 'queue-item';
+    item.id        = `qi-${task.id}`;
+    item.setAttribute('role', 'listitem');
+    item.style.animationDelay = `${S.queueVisible.length * 50}ms`;
+
+    item.innerHTML = `
+      <div class="queue-item__icon queue-item__icon${task.iconCls}">
+        <i class="${task.icon}" aria-hidden="true"></i>
+      </div>
+      <div class="queue-item__content">
+        <p class="queue-item__title">${esc(task.title)}</p>
+        <p class="queue-item__sub">${esc(task.sub)}</p>
+      </div>
+      <div class="queue-item__actions">
+        <button class="a-btn a-btn--primary a-btn--sm queue-complete-btn"
+          data-task="${task.id}"
+          data-action="${task.action}"
+          data-target="${task.target}"
+          data-name="${esc(task.targetName)}"
+          type="button">
+          Done
+        </button>
+        <button class="a-btn a-btn--ghost a-btn--sm queue-skip-btn"
+          data-task="${task.id}"
+          type="button">
+          Skip
+        </button>
+      </div>
+    `;
+
+    list.appendChild(item);
+    S.queueVisible.push(task.id);
+
+    // Attach button listeners
+    item.querySelector('.queue-complete-btn').addEventListener('click', e => {
+      const btn = e.currentTarget;
+      completeQueueItem(btn.dataset.task, btn.dataset.action, btn.dataset.target, btn.dataset.name);
+    });
+
+    item.querySelector('.queue-skip-btn').addEventListener('click', e => {
+      skipQueueItem(e.currentTarget.dataset.task);
+    });
+  }
+
+  function completeQueueItem(taskId, action, target, name) {
+    const messages = {
+      verify_biz:      `${name} has been verified.`,
+      approve_pro:     `PRO activated for ${name}.`,
+      dismiss_report:  `Report dismissed.`,
+      verify_user:     `${name} has been verified.`,
+    };
+
+    openModal(
+      'Confirm Action',
+      messages[action] ? `Proceed? ${messages[action]}` : 'Are you sure?',
+      () => {
+        removeQueueItem(taskId);
+        pullNextQueueItem();
+        showToast(messages[action] || 'Action completed.');
+        renderGreeting();
+      }
+    );
+  }
+
+  function skipQueueItem(taskId) {
+    removeQueueItem(taskId);
+    pullNextQueueItem();
+  }
+
+  function removeQueueItem(taskId) {
+    const el = document.getElementById(`qi-${taskId}`);
+    if (!el) return;
+    el.classList.add('is-completing');
+    S.queueVisible = S.queueVisible.filter(id => id !== taskId);
+    setTimeout(() => el.remove(), 330);
+  }
+
+  function pullNextQueueItem() {
+    const list = document.getElementById('queueList');
+    const countEl = document.getElementById('queueCount');
+    if (!list) return;
+
+    // After animation, check if we have more tasks
+    setTimeout(() => {
+      if (S.queueIndex < QUEUE_TASKS.length) {
+        appendQueueItem(QUEUE_TASKS[S.queueIndex]);
+        S.queueIndex++;
+        updateQueueCount(countEl);
+      } else if (S.queueVisible.length === 0) {
+        showQueueEmpty(list);
+        if (countEl) countEl.textContent = '';
+      }
+    }, 350);
+  }
+
+  function updateQueueCount(el) {
+    if (!el) return;
+    const remaining = QUEUE_TASKS.length - S.queueIndex + S.queueVisible.length;
+    el.textContent = remaining > 0 ? `${remaining} remaining` : '';
+  }
+
+  function showQueueEmpty(list) {
+    list.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = 'queue-empty';
+    el.innerHTML = `
+      <div class="queue-empty__icon"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></div>
+      <p class="queue-empty__title">Excellent work, Chief Executive.</p>
+      <p class="queue-empty__sub">No pending operations remain. Enjoy your day.</p>
+    `;
+    list.appendChild(el);
+  }
+
+
+  /* ==========================================================
+     9. HOME — QUICK ACTIONS (buttons already in HTML)
+  ========================================================== */
+  // Handled by section router — no additional code needed.
+
+
+  /* ==========================================================
+     10. HOME — SYSTEM HEALTH
+  ========================================================== */
+
+  function renderHealth() {
+    const grid = document.getElementById('healthGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    HEALTH_ITEMS.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'health-item';
+      el.innerHTML = `
+        <div class="health-item__dot health-item__dot--${item.color}" aria-hidden="true"></div>
+        <p class="health-item__name">${esc(item.name)}</p>
+        <p class="health-item__status">${esc(item.status)}</p>
+      `;
+      grid.appendChild(el);
     });
   }
 
@@ -509,480 +534,774 @@ document.addEventListener('DOMContentLoaded', () => {
   ========================================================== */
 
   function renderBusinesses() {
-    const pending = PLACEHOLDER_BIZ.filter(b => b.status === 'pending');
-    const all     = PLACEHOLDER_BIZ;
+    const cards = document.getElementById('bizCards');
+    if (!cards) return;
 
-    // Pending list
-    const pendingEl = document.getElementById('pendingBizList');
-    if (pendingEl) {
-      if (pending.length === 0) {
-        pendingEl.innerHTML = `<p style="padding:1.5rem;text-align:center;color:var(--color-text-tertiary);font-size:.875rem;">No pending verifications 🎉</p>`;
-      } else {
-        pendingEl.innerHTML = '';
-        pending.forEach(biz => {
-          const row = document.createElement('div');
-          row.className = 'biz-row';
-          row.innerHTML = `
-            <div class="table-member__avatar">${escapeHTML(getInitials(biz.name))}</div>
-            <div class="biz-row__content">
-              <p class="biz-row__name">${escapeHTML(biz.name)}</p>
-              <p class="biz-row__sub">${escapeHTML(biz.category)} · ${escapeHTML(biz.owner)}</p>
-            </div>
-            <div class="biz-row__actions">
-              <button class="table-btn table-btn--verify" data-action="verify_biz" data-id="${biz.id}" data-name="${escapeHTML(biz.name)}">Verify</button>
-              <button class="table-btn table-btn--reject" data-action="reject_biz" data-id="${biz.id}" data-name="${escapeHTML(biz.name)}">Reject</button>
-            </div>
-          `;
-          pendingEl.appendChild(row);
-          attachTableBtnListeners(pendingEl);
-        });
-      }
+    const filtered = DATA_BIZ.filter(b =>
+      S.bizFilter === 'all' || b.status === S.bizFilter
+    );
+
+    const search = document.getElementById('bizSearch')?.value.toLowerCase() || '';
+    const final  = search ? filtered.filter(b =>
+      b.name.toLowerCase().includes(search) || b.category.toLowerCase().includes(search)
+    ) : filtered;
+
+    cards.innerHTML = '';
+
+    if (final.length === 0) {
+      cards.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--text-3);font-size:.875rem;">No businesses match this filter.</p>';
+      return;
     }
 
-    // All businesses table
-    const tbody  = document.getElementById('bizTableBody');
-    const count  = document.getElementById('bizCount');
-    if (!tbody) return;
-    if (count) count.textContent = `${all.length} businesses`;
+    final.forEach((biz, i) => {
+      const card = document.createElement('div');
+      card.className = 'entity-card';
+      card.setAttribute('role', 'listitem');
+      card.style.animationDelay = `${i * 40}ms`;
 
-    tbody.innerHTML = '';
-    all.forEach((biz, i) => {
-      const tr = document.createElement('tr');
-      tr.style.animationDelay = `${i * 30}ms`;
-      tr.innerHTML = `
-        <td>
-          <div class="table-member">
-            <div class="table-member__avatar">${escapeHTML(getInitials(biz.name))}</div>
-            <div class="table-member__info">
-              <p class="table-member__name">${escapeHTML(biz.name)}</p>
-            </div>
+      card.innerHTML = `
+        <div class="entity-card__avatar">${esc(initials(biz.name))}</div>
+        <div class="entity-card__info">
+          <p class="entity-card__name">${esc(biz.name)}</p>
+          <div class="entity-card__sub">
+            <span>${esc(biz.category)}</span>
+            <span class="pill pill--${biz.status}">${cap(biz.status)}</span>
+            ${biz.isPro ? '<span class="pill pill--pro">PRO</span>' : ''}
           </div>
-        </td>
-        <td>${escapeHTML(biz.owner)}</td>
-        <td>${escapeHTML(biz.category)}</td>
-        <td><span class="pill pill--${biz.status}">${escapeHTML(capitalise(biz.status))}</span></td>
-        <td>${escapeHTML(biz.joined)}</td>
-        <td>
-          <div class="table-actions">
-            ${biz.status !== 'verified'
-              ? `<button class="table-btn table-btn--verify" data-action="verify_biz" data-id="${biz.id}" data-name="${escapeHTML(biz.name)}">Verify</button>`
-              : '<span style="font-size:.75rem;color:var(--color-success)">✓ Verified</span>'
-            }
-            <button class="table-btn table-btn--suspend" data-action="suspend_biz" data-id="${biz.id}" data-name="${escapeHTML(biz.name)}">Suspend</button>
-          </div>
-        </td>
+        </div>
+        <div class="entity-card__actions">
+          ${biz.status === 'pending'
+            ? `<button class="a-btn a-btn--success a-btn--xs" data-action="verify_biz" data-id="${biz.id}" data-name="${esc(biz.name)}" type="button">Verify</button>
+               <button class="a-btn a-btn--danger  a-btn--xs" data-action="reject_biz"  data-id="${biz.id}" data-name="${esc(biz.name)}" type="button">Reject</button>`
+            : biz.status === 'verified'
+            ? `<button class="a-btn a-btn--warn a-btn--xs" data-action="suspend_biz" data-id="${biz.id}" data-name="${esc(biz.name)}" type="button">Suspend</button>`
+            : `<button class="a-btn a-btn--success a-btn--xs" data-action="unsuspend_biz" data-id="${biz.id}" data-name="${esc(biz.name)}" type="button">Unsuspend</button>`
+          }
+        </div>
       `;
-      tbody.appendChild(tr);
+      cards.appendChild(card);
     });
 
-    attachTableBtnListeners(tbody);
+    attachActionBtns(cards);
   }
+
+  // Filter chips
+  document.querySelectorAll('[data-biz-filter]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-biz-filter]').forEach(c => c.classList.remove('chip--active'));
+      chip.classList.add('chip--active');
+      S.bizFilter = chip.dataset.bizFilter;
+      renderBusinesses();
+    });
+  });
+
+  document.getElementById('bizSearch')?.addEventListener('input', renderBusinesses);
 
 
   /* ==========================================================
-     12. LISTINGS SECTION
+     12. USERS SECTION
+  ========================================================== */
+
+  function renderUsers() {
+    const cards = document.getElementById('userCards');
+    if (!cards) return;
+
+    const filtered = DATA_USERS.filter(u =>
+      S.userFilter === 'all' ||
+      u.type === S.userFilter ||
+      u.status === S.userFilter
+    );
+
+    const search = document.getElementById('userSearch')?.value.toLowerCase() || '';
+    const final  = search ? filtered.filter(u =>
+      u.name.toLowerCase().includes(search) || u.jaraId.toLowerCase().includes(search)
+    ) : filtered;
+
+    cards.innerHTML = '';
+
+    final.forEach((user, i) => {
+      const card = document.createElement('div');
+      card.className = 'entity-card';
+      card.setAttribute('role', 'listitem');
+      card.style.animationDelay = `${i * 40}ms`;
+
+      card.innerHTML = `
+        <div class="entity-card__avatar">${esc(initials(user.name))}</div>
+        <div class="entity-card__info">
+          <p class="entity-card__name">${esc(user.name)}</p>
+          <div class="entity-card__sub">
+            <span>${esc(user.jaraId)}</span>
+            <span class="pill pill--${user.status}">${cap(user.status)}</span>
+            ${user.isFounder ? '<span class="pill pill--founding">Founder</span>' : ''}
+            <span class="pill pill--${user.type}">${cap(user.type)}</span>
+          </div>
+        </div>
+        <div class="entity-card__actions">
+          ${user.status === 'pending'
+            ? `<button class="a-btn a-btn--success a-btn--xs" data-action="verify_user" data-id="${user.id}" data-name="${esc(user.name)}" type="button">Verify</button>`
+            : ''
+          }
+          ${user.status !== 'suspended'
+            ? `<button class="a-btn a-btn--warn a-btn--xs" data-action="suspend_user" data-id="${user.id}" data-name="${esc(user.name)}" type="button">Suspend</button>`
+            : `<button class="a-btn a-btn--success a-btn--xs" data-action="unsuspend_user" data-id="${user.id}" data-name="${esc(user.name)}" type="button">Restore</button>`
+          }
+        </div>
+      `;
+      cards.appendChild(card);
+    });
+
+    attachActionBtns(cards);
+  }
+
+  document.querySelectorAll('[data-user-filter]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-user-filter]').forEach(c => c.classList.remove('chip--active'));
+      chip.classList.add('chip--active');
+      S.userFilter = chip.dataset.userFilter;
+      renderUsers();
+    });
+  });
+
+  document.getElementById('userSearch')?.addEventListener('input', renderUsers);
+
+
+  /* ==========================================================
+     13. LISTINGS SECTION
   ========================================================== */
 
   function renderListings() {
-    // Reports
-    const reportsEl = document.getElementById('reportedList');
-    if (reportsEl) {
-      reportsEl.innerHTML = '';
-      if (PLACEHOLDER_REPORTS.length === 0) {
-        reportsEl.innerHTML = `<p style="padding:1.5rem;text-align:center;color:var(--color-text-tertiary);font-size:.875rem;">No reported listings 🎉</p>`;
-      } else {
-        PLACEHOLDER_REPORTS.forEach(report => {
-          const row = document.createElement('div');
-          row.className = 'report-row';
-          row.innerHTML = `
-            <div class="report-row__icon"><i class="fa-solid fa-flag" aria-hidden="true"></i></div>
-            <div class="report-row__content">
-              <p class="report-row__title">${escapeHTML(report.title)}</p>
-              <p class="report-row__reason">${escapeHTML(report.reason)}</p>
-              <p class="report-row__meta">Reported by ${escapeHTML(report.reporter)} · ${escapeHTML(report.time)}</p>
-            </div>
-            <div class="report-row__actions">
-              <button class="table-btn table-btn--approve" data-action="dismiss_report" data-id="${report.id}" data-name="${escapeHTML(report.title)}">Dismiss</button>
-              <button class="table-btn table-btn--delete"  data-action="remove_listing" data-id="${report.id}" data-name="${escapeHTML(report.title)}">Remove</button>
-            </div>
-          `;
-          reportsEl.appendChild(row);
-        });
-        attachTableBtnListeners(reportsEl);
-      }
-    }
+    const cards = document.getElementById('listingCards');
+    if (!cards) return;
 
-    // Listings table
-    const tbody = document.getElementById('listingsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    const filtered = PLACEHOLDER_LISTINGS.filter(l =>
-      state.listingFilter === 'all' || l.type === state.listingFilter
+    const filtered = DATA_LISTINGS.filter(l =>
+      S.listingFilter === 'all' || l.type === S.listingFilter
     );
 
-    filtered.forEach((listing, i) => {
-      const typeDotCls = { product: 'product', service: 'service', request: 'request' }[listing.type] || 'product';
-      const tr = document.createElement('tr');
-      tr.style.animationDelay = `${i * 30}ms`;
-      tr.innerHTML = `
-        <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(listing.title)}</td>
-        <td>
-          <span style="display:flex;align-items:center;gap:6px">
-            <span class="type-dot type-dot--${typeDotCls}"></span>
-            ${escapeHTML(capitalise(listing.type))}
-          </span>
-        </td>
-        <td>${escapeHTML(listing.seller)}</td>
-        <td><span class="pill pill--active">${escapeHTML(capitalise(listing.status))}</span></td>
-        <td>${listing.views}</td>
-        <td>
-          <div class="table-actions">
-            <button class="table-btn table-btn--delete" data-action="remove_listing" data-id="${listing.id}" data-name="${escapeHTML(listing.title)}">Remove</button>
+    cards.innerHTML = '';
+
+    filtered.forEach((item, i) => {
+      const card = document.createElement('div');
+      card.className = 'entity-card';
+      card.setAttribute('role', 'listitem');
+      card.style.animationDelay = `${i * 40}ms`;
+
+      card.innerHTML = `
+        <div class="entity-card__avatar" style="font-size:1.25rem">
+          ${item.type === 'product' ? '📦' : item.type === 'service' ? '🛠️' : '📢'}
+        </div>
+        <div class="entity-card__info">
+          <p class="entity-card__name">${esc(item.title)}</p>
+          <div class="entity-card__sub">
+            <span class="pill pill--${item.type}">${cap(item.type)}</span>
+            <span>${esc(item.seller)}</span>
+            <span><i class="fa-solid fa-eye" style="font-size:.625rem" aria-hidden="true"></i> ${item.views}</span>
           </div>
-        </td>
+        </div>
+        <div class="entity-card__actions">
+          <button class="a-btn a-btn--danger a-btn--xs" data-action="remove_listing" data-id="${item.id}" data-name="${esc(item.title)}" type="button">Remove</button>
+        </div>
       `;
-      tbody.appendChild(tr);
+      cards.appendChild(card);
     });
 
-    attachTableBtnListeners(tbody);
+    if (filtered.length === 0) {
+      cards.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--text-3);font-size:.875rem;">No listings in this category.</p>';
+    }
+
+    attachActionBtns(cards);
   }
 
-  // Listing filter chips
   document.querySelectorAll('[data-listing-filter]').forEach(chip => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('[data-listing-filter]').forEach(c => c.classList.remove('filter-chip--active'));
-      chip.classList.add('filter-chip--active');
-      state.listingFilter = chip.dataset.listingFilter;
-      const tbody = document.getElementById('listingsTableBody');
-      if (tbody) renderListings();
+      document.querySelectorAll('[data-listing-filter]').forEach(c => c.classList.remove('chip--active'));
+      chip.classList.add('chip--active');
+      S.listingFilter = chip.dataset.listingFilter;
+      renderListings();
     });
   });
 
 
   /* ==========================================================
-     13. FOUNDING MEMBERS SECTION
+     14. FOUNDING MEMBERS SECTION
   ========================================================== */
 
   function renderFounding() {
-    const total     = 100;
-    const awarded   = PLACEHOLDER_FOUNDING.length;
-    const remaining = total - awarded;
-    const pct       = (awarded / total) * 100;
-
-    // Progress bar
-    const fill = document.getElementById('foundingBarFill');
-    if (fill) setTimeout(() => { fill.style.width = `${pct}%`; }, 100);
+    const awarded   = DATA_FOUNDING.length;
+    const remaining = FOUNDING_TOTAL - awarded;
+    const pct       = (awarded / FOUNDING_TOTAL) * 100;
+    const isComplete = awarded >= FOUNDING_TOTAL;
 
     const awardedEl   = document.getElementById('foundingAwarded');
     const remainingEl = document.getElementById('foundingRemaining');
-    if (awardedEl)   awardedEl.textContent   = `${awarded} awarded`;
-    if (remainingEl) remainingEl.textContent = `${remaining} remaining`;
+    const fill        = document.getElementById('foundingFill');
+    const complete    = document.getElementById('foundingComplete');
 
-    // Table
-    const tbody = document.getElementById('foundingTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
+    if (awardedEl)   awardedEl.textContent   = awarded;
+    if (remainingEl) remainingEl.textContent = isComplete ? 'Programme complete' : `${remaining} slots remaining`;
+    if (fill)        setTimeout(() => { fill.style.width = `${pct}%`; }, 120);
+    if (complete)    complete.hidden = !isComplete;
 
-    PLACEHOLDER_FOUNDING.forEach((member, i) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="color:var(--color-gold);font-weight:700;font-family:var(--font-display)">#${i + 1}</td>
-        <td>
-          <div class="table-member">
-            <div class="table-member__avatar">${escapeHTML(getInitials(member.name))}</div>
-            <div class="table-member__info">
-              <p class="table-member__name">${escapeHTML(member.name)}</p>
-            </div>
+    const cards = document.getElementById('foundingCards');
+    if (!cards) return;
+    cards.innerHTML = '';
+
+    DATA_FOUNDING.forEach((m, i) => {
+      const card = document.createElement('div');
+      card.className = 'entity-card';
+      card.setAttribute('role', 'listitem');
+      card.style.animationDelay = `${i * 40}ms`;
+
+      card.innerHTML = `
+        <div class="entity-card__avatar entity-card__avatar--gold" style="font-size:.875rem">
+          #${i + 1}
+        </div>
+        <div class="entity-card__info">
+          <p class="entity-card__name">${esc(m.name)}</p>
+          <div class="entity-card__sub">
+            <span>${esc(m.jaraId)}</span>
+            <span>Awarded ${esc(m.awarded)}</span>
           </div>
-        </td>
-        <td><code>${escapeHTML(member.jaraId)}</code></td>
-        <td>${escapeHTML(member.awarded)}</td>
-        <td>
-          <button class="table-btn table-btn--remove" data-action="remove_founding" data-id="${member.id}" data-name="${escapeHTML(member.name)}">Remove</button>
-        </td>
+        </div>
+        <div class="entity-card__actions">
+          ${!isComplete
+            ? `<button class="a-btn a-btn--danger a-btn--xs" data-action="remove_founding" data-id="${m.id}" data-name="${esc(m.name)}" type="button">Remove</button>`
+            : ''
+          }
+        </div>
       `;
-      tbody.appendChild(tr);
+      cards.appendChild(card);
     });
 
-    attachTableBtnListeners(tbody);
+    attachActionBtns(cards);
   }
 
 
   /* ==========================================================
-     14. JARA PRO SECTION
+     15. JARA PRO SECTION
   ========================================================== */
 
   function renderPro() {
-    const active  = PLACEHOLDER_PRO.filter(p => p.status === 'active').length;
-    const expired = PLACEHOLDER_PRO.filter(p => p.status === 'expired').length;
+    // Update pending badge
+    const badge = document.getElementById('pendingProBadge');
+    if (badge) badge.textContent = DATA_PRO_PENDING.length;
 
-    const totalEl   = document.getElementById('proTotal');
-    const activeEl  = document.getElementById('proActive');
-    const expiredEl = document.getElementById('proExpired');
+    renderProTab(S.proTab);
+  }
 
-    if (totalEl)   countUp(totalEl,   PLACEHOLDER_PRO.length);
-    if (activeEl)  countUp(activeEl,  active);
-    if (expiredEl) countUp(expiredEl, expired);
-
-    const tbody = document.getElementById('proTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    PLACEHOLDER_PRO.forEach(member => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>
-          <div class="table-member">
-            <div class="table-member__avatar">${escapeHTML(getInitials(member.name))}</div>
-            <div class="table-member__info">
-              <p class="table-member__name">${escapeHTML(member.name)}</p>
-            </div>
-          </div>
-        </td>
-        <td>${escapeHTML(member.plan)}</td>
-        <td>${escapeHTML(member.expires)}</td>
-        <td><span class="pill pill--${member.status}">${escapeHTML(capitalise(member.status))}</span></td>
-        <td>
-          <div class="table-actions">
-            <button class="table-btn table-btn--remove" data-action="remove_pro" data-id="${member.id}" data-name="${escapeHTML(member.name)}">Remove PRO</button>
-          </div>
-        </td>
-      `;
-      tbody.appendChild(tr);
+  function renderProTab(tab) {
+    ['pending','active','expired'].forEach(t => {
+      const panel = document.getElementById(`proTab${cap(t)}`);
+      if (panel) panel.hidden = t !== tab;
     });
 
-    attachTableBtnListeners(tbody);
+    document.querySelectorAll('[data-pro-tab]').forEach(btn => {
+      btn.classList.toggle('tab--active', btn.dataset.proTab === tab);
+      btn.setAttribute('aria-selected', btn.dataset.proTab === tab ? 'true' : 'false');
+    });
+
+    if (tab === 'pending')  renderProPending();
+    if (tab === 'active')   renderProActive();
+    if (tab === 'expired')  renderProExpired();
+  }
+
+  document.querySelectorAll('[data-pro-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      S.proTab = btn.dataset.proTab;
+      renderProTab(S.proTab);
+    });
+  });
+
+  function renderProPending() {
+    const cards = document.getElementById('pendingProCards');
+    if (!cards) return;
+    cards.innerHTML = '';
+
+    if (DATA_PRO_PENDING.length === 0) {
+      cards.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--text-3);font-size:.875rem;">No pending PRO requests 🎉</p>';
+      return;
+    }
+
+    DATA_PRO_PENDING.forEach((req, i) => {
+      const card = document.createElement('div');
+      card.className = 'pro-req-card';
+      card.style.animationDelay = `${i * 50}ms`;
+
+      card.innerHTML = `
+        <div class="pro-req-card__header">
+          <div class="entity-card__avatar" style="font-size:.875rem">${esc(initials(req.name))}</div>
+          <div class="entity-card__info">
+            <p class="entity-card__name">${esc(req.name)}</p>
+            <div class="entity-card__sub"><span>${esc(req.jaraId)}</span></div>
+          </div>
+          <span class="pill pill--pending">Pending</span>
+        </div>
+        <div class="pro-req-card__body">
+          <div class="pro-req-card__field">
+            <span class="pro-req-card__key">Plan</span>
+            <span class="pro-req-card__val">${esc(req.plan)}</span>
+          </div>
+          <div class="pro-req-card__field">
+            <span class="pro-req-card__key">Amount</span>
+            <span class="pro-req-card__val" style="color:var(--gold)">${esc(req.amount)}</span>
+          </div>
+          <div class="pro-req-card__field">
+            <span class="pro-req-card__key">Reference</span>
+            <span class="pro-req-card__ref">${esc(req.ref)}</span>
+          </div>
+          <div class="pro-req-card__field">
+            <span class="pro-req-card__key">Submitted</span>
+            <span class="pro-req-card__val">${esc(req.time)}</span>
+          </div>
+        </div>
+        <div class="pro-req-card__actions">
+          <button class="a-btn a-btn--gold"    data-action="approve_pro" data-id="${req.id}" data-name="${esc(req.name)}" type="button">
+            <i class="fa-solid fa-crown" aria-hidden="true"></i> Approve PRO
+          </button>
+          <button class="a-btn a-btn--danger"  data-action="reject_pro"  data-id="${req.id}" data-name="${esc(req.name)}" type="button">Reject</button>
+        </div>
+      `;
+      cards.appendChild(card);
+    });
+
+    attachActionBtns(cards);
+  }
+
+  function renderProActive() {
+    const cards = document.getElementById('activeProCards');
+    if (!cards) return;
+    cards.innerHTML = '';
+
+    DATA_PRO_ACTIVE.forEach((m, i) => {
+      const card = document.createElement('div');
+      card.className = 'entity-card';
+      card.style.animationDelay = `${i * 40}ms`;
+      card.innerHTML = `
+        <div class="entity-card__avatar entity-card__avatar--gold" style="font-size:.875rem">${esc(initials(m.name))}</div>
+        <div class="entity-card__info">
+          <p class="entity-card__name">${esc(m.name)}</p>
+          <div class="entity-card__sub">
+            <span class="pill pill--pro">PRO</span>
+            <span>${esc(m.plan)}</span>
+            <span>Expires ${esc(m.expires)}</span>
+          </div>
+        </div>
+        <div class="entity-card__actions">
+          <button class="a-btn a-btn--danger a-btn--xs" data-action="remove_pro" data-id="${m.id}" data-name="${esc(m.name)}" type="button">Remove</button>
+        </div>
+      `;
+      cards.appendChild(card);
+    });
+    attachActionBtns(cards);
+  }
+
+  function renderProExpired() {
+    const cards = document.getElementById('expiredProCards');
+    if (!cards) return;
+    cards.innerHTML = '';
+
+    if (DATA_PRO_EXPIRED.length === 0) {
+      cards.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--text-3);font-size:.875rem;">No expired members.</p>';
+      return;
+    }
+
+    DATA_PRO_EXPIRED.forEach((m, i) => {
+      const card = document.createElement('div');
+      card.className = 'entity-card';
+      card.style.animationDelay = `${i * 40}ms`;
+      card.innerHTML = `
+        <div class="entity-card__avatar" style="font-size:.875rem;opacity:.5">${esc(initials(m.name))}</div>
+        <div class="entity-card__info">
+          <p class="entity-card__name">${esc(m.name)}</p>
+          <div class="entity-card__sub">
+            <span style="color:var(--red)">Expired ${esc(m.expires)}</span>
+            <span>${esc(m.plan)}</span>
+          </div>
+        </div>
+        <div class="entity-card__actions">
+          <button class="a-btn a-btn--warn a-btn--xs" data-action="reactivate_pro" data-id="${m.id}" data-name="${esc(m.name)}" type="button">Reactivate</button>
+        </div>
+      `;
+      cards.appendChild(card);
+    });
+    attachActionBtns(cards);
   }
 
 
   /* ==========================================================
-     15. ANNOUNCEMENTS SECTION
+     16. REPORTS SECTION
   ========================================================== */
 
-  function renderAnnouncements() {
-    // Char counter
-    const body     = document.getElementById('annBody');
-    const countEl  = document.getElementById('annCharCount');
-    const sendBtn  = document.getElementById('annSendBtn');
+  function renderReports() {
+    const cards = document.getElementById('reportCards');
+    if (!cards) return;
+    cards.innerHTML = '';
 
-    if (body && countEl) {
-      body.addEventListener('input', () => {
-        const len = body.value.length;
-        countEl.textContent = len;
-        if (sendBtn) sendBtn.disabled = len === 0;
-      });
+    if (DATA_REPORTS.length === 0) {
+      cards.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--text-3);font-size:.875rem;">No pending reports 🎉</p>';
+      return;
     }
 
-    // Send button (placeholder — shows toast)
-    if (sendBtn) {
-      sendBtn.addEventListener('click', () => {
-        showToast('Announcement sending will be connected when the notification engine is ready.');
-      });
-    }
+    DATA_REPORTS.forEach((rep, i) => {
+      const card = document.createElement('div');
+      card.className = 'report-card';
+      card.style.animationDelay = `${i * 50}ms`;
 
-    // Sent announcements
-    const sentEl = document.getElementById('sentAnnouncements');
-    if (sentEl) {
-      sentEl.innerHTML = '';
-      if (PLACEHOLDER_SENT_ANN.length === 0) {
-        sentEl.innerHTML = `<p style="padding:1.5rem;text-align:center;color:var(--color-text-tertiary);font-size:.875rem;">No announcements sent yet.</p>`;
-      } else {
-        PLACEHOLDER_SENT_ANN.forEach(ann => {
-          const row = document.createElement('div');
-          row.className = 'sent-ann-row';
-          row.innerHTML = `
-            <div class="kpi-card__icon" style="flex-shrink:0">
-              <i class="fa-solid fa-bullhorn" style="color:var(--color-accent-light)"></i>
-            </div>
-            <div class="sent-ann-row__content">
-              <p class="sent-ann-row__title">${escapeHTML(ann.title)}</p>
-              <p class="sent-ann-row__meta">Sent to ${escapeHTML(ann.to)} · ${escapeHTML(ann.time)}</p>
-            </div>
-          `;
-          sentEl.appendChild(row);
-        });
-      }
-    }
+      card.innerHTML = `
+        <div class="report-card__header">
+          <div class="report-card__icon"><i class="fa-solid fa-flag" aria-hidden="true"></i></div>
+          <div>
+            <p class="report-card__title">${esc(rep.title)}</p>
+            <p class="report-card__reason">${esc(rep.reason)}</p>
+            <p class="report-card__meta">Reported by ${esc(rep.reporter)} · ${esc(rep.time)}</p>
+          </div>
+        </div>
+        <div class="report-card__actions">
+          <button class="a-btn a-btn--ghost a-btn--sm"   data-action="dismiss_report"  data-id="${rep.id}" data-name="${esc(rep.title)}" type="button">Dismiss</button>
+          <button class="a-btn a-btn--warn a-btn--sm"    data-action="warn_user_report" data-id="${rep.id}" data-name="${esc(rep.title)}" type="button">Warn User</button>
+          <button class="a-btn a-btn--danger a-btn--sm"  data-action="remove_listing"   data-id="${rep.id}" data-name="${esc(rep.title)}" type="button">Remove Listing</button>
+        </div>
+      `;
+      cards.appendChild(card);
+    });
+
+    attachActionBtns(cards);
   }
 
 
   /* ==========================================================
-     16. ANALYTICS SECTION
+     17. ANNOUNCEMENTS SECTION
+   ========================================================== */
+
+  function renderAnnouncements() {
+    const body    = document.getElementById('annBody');
+    const count   = document.getElementById('annCount');
+    const sendBtn = document.getElementById('annSendBtn');
+
+    body?.addEventListener('input', () => {
+      const len = body.value.length;
+      if (count) count.textContent = len;
+      if (sendBtn) sendBtn.disabled = len === 0;
+    });
+
+    sendBtn?.addEventListener('click', () => {
+      showToast('Announcement engine not yet connected. Reference marked with FUTURE: in code.');
+      /* FUTURE: INSERT INTO notifications (user_id, type, title, body)
+                 SELECT id, 'announcement', annTitle, annBody
+                 FROM profiles WHERE account_type MATCHES audience */
+    });
+  }
+
+
+  /* ==========================================================
+     18. ANALYTICS SECTION
   ========================================================== */
 
   function renderAnalytics() {
-    // Top metrics
-    const anaEl = {
-      newUsers:     document.getElementById('anaNewUsers'),
-      newListings:  document.getElementById('anaNewListings'),
-      searches:     document.getElementById('anaSearches'),
-    };
+    // KPI row
+    const kpiEl = document.getElementById('analyticsKpi');
+    if (kpiEl) {
+      kpiEl.innerHTML = '';
+      const items = [
+        { icon:'fa-solid fa-users',       label:'New Users (30d)',    value:63  },
+        { icon:'fa-solid fa-boxes-stacked',label:'New Listings (30d)', value:184 },
+        { icon:'fa-solid fa-magnifying-glass',label:'Searches (30d)',  value:1420 },
+      ];
+      items.forEach((item, i) => {
+        const card = document.createElement('div');
+        card.className = 'kpi-card';
+        card.style.animationDelay = `${i * 50}ms`;
+        card.innerHTML = `
+          <div class="kpi-card__icon"><i class="${item.icon}" aria-hidden="true"></i></div>
+          <span class="kpi-card__value" id="ana_${i}">0</span>
+          <span class="kpi-card__label">${esc(item.label)}</span>
+        `;
+        kpiEl.appendChild(card);
+        requestAnimationFrame(() => countUp(document.getElementById(`ana_${i}`), item.value));
+      });
+    }
 
-    if (anaEl.newUsers)    countUp(anaEl.newUsers,    63);
-    if (anaEl.newListings) countUp(anaEl.newListings, 184);
-    if (anaEl.searches)    countUp(anaEl.searches,    1420);
-
-    // Growth chart
-    const barsEl   = document.getElementById('chartBars');
-    const labelsEl = document.getElementById('chartLabels');
-
+    // Bar chart
+    const barsEl   = document.getElementById('growthBars');
+    const labelsEl = document.getElementById('growthLabels');
     if (barsEl && labelsEl) {
       barsEl.innerHTML   = '';
       labelsEl.innerHTML = '';
-      const maxVal = Math.max(...ANALYTICS_CHART_DATA);
-
-      ANALYTICS_CHART_DATA.forEach((val, i) => {
+      const maxV = Math.max(...ANALYTICS_CHART);
+      ANALYTICS_CHART.forEach((v, i) => {
         const bar = document.createElement('div');
-        bar.className = 'chart-bar';
-        bar.style.height = `${(val / maxVal) * 100}%`;
-        bar.style.animationDelay = `${i * 30}ms`;
-        bar.title = `${val} users`;
+        bar.className = 'mini-chart__bar';
+        bar.style.height = `${(v / maxV) * 100}%`;
+        bar.style.animationDelay = `${i * 25}ms`;
+        bar.title = `${v} users`;
         barsEl.appendChild(bar);
       });
-
-      ANALYTICS_CHART_LABELS.forEach(label => {
+      ANALYTICS_LABELS.forEach(l => {
         const el = document.createElement('div');
-        el.className     = 'chart-label';
-        el.textContent   = label;
+        el.className   = 'mini-chart__label';
+        el.textContent = l;
         labelsEl.appendChild(el);
       });
     }
 
-    // Category breakdown
-    const catEl = document.getElementById('categoryBreakdown');
+    // Categories
+    const catEl = document.getElementById('catList');
     if (catEl) {
       catEl.innerHTML = '';
-      const max = ANALYTICS_CATEGORIES[0].searches;
-
-      ANALYTICS_CATEGORIES.forEach((cat, i) => {
+      const maxC = ANALYTICS_CATS[0].n;
+      ANALYTICS_CATS.forEach(cat => {
         const row = document.createElement('div');
-        row.className = 'cat-bar-row';
+        row.className = 'cat-row';
         row.innerHTML = `
-          <span class="cat-bar-row__label">${escapeHTML(cat.name)}</span>
-          <div class="cat-bar-row__track">
-            <div class="cat-bar-row__fill" style="width:0%" data-target="${(cat.searches/max)*100}"></div>
+          <span class="cat-row__name">${esc(cat.name)}</span>
+          <div class="cat-row__track">
+            <div class="cat-row__fill" style="width:0%" data-w="${(cat.n/maxC)*100}"></div>
           </div>
-          <span class="cat-bar-row__count">${cat.searches}</span>
+          <span class="cat-row__count">${cat.n}</span>
         `;
         catEl.appendChild(row);
       });
-
-      // Animate bars after render
       requestAnimationFrame(() => {
         setTimeout(() => {
-          document.querySelectorAll('.cat-bar-row__fill').forEach(fill => {
-            fill.style.width = fill.dataset.target + '%';
+          catEl.querySelectorAll('.cat-row__fill').forEach(el => {
+            el.style.width = el.dataset.w + '%';
           });
-        }, 150);
+        }, 100);
       });
     }
   }
 
 
   /* ==========================================================
-     17. SETTINGS SECTION
+     19. SETTINGS SECTION
   ========================================================== */
 
   function renderSettings() {
-    // Toggle listeners (placeholders — show toast on change)
-    ['launchMode', 'maintenanceMode', 'newRegistrations', 'emailVerification',
-     'reportAlerts', 'verificationAlerts', 'proAlerts'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener('change', () => {
-        const label = el.closest('.settings-row')?.querySelector('.settings-row__label')?.textContent || id;
-        showToast(`${label}: ${el.checked ? 'Enabled' : 'Disabled'}. Settings sync will be connected to Supabase.`);
-        /*
-         FUTURE: UPDATE platform_settings SET [key] = [value]
-                 WHERE id = 1  (single settings row)
-        */
+    buildToggles('platformToggles', PLATFORM_TOGGLES);
+    buildToggles('notifToggles',    NOTIF_TOGGLES);
+  }
+
+  function buildToggles(containerId, toggles) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = '';
+
+    toggles.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'toggle-row';
+      row.innerHTML = `
+        <div class="toggle-row__icon toggle-row__icon--${t.cls}">
+          <i class="${t.icon}" aria-hidden="true"></i>
+        </div>
+        <div class="toggle-row__content">
+          <p class="toggle-row__label">${esc(t.label)}</p>
+          <p class="toggle-row__sub">${esc(t.sub)}</p>
+        </div>
+        <label class="toggle-sw" aria-label="${esc(t.label)}">
+          <input type="checkbox" class="toggle-sw__input" id="${t.id}" ${t.checked ? 'checked' : ''} />
+          <span class="toggle-sw__track" aria-hidden="true"></span>
+        </label>
+      `;
+      el.appendChild(row);
+
+      row.querySelector('input').addEventListener('change', e => {
+        showToast(`${t.label}: ${e.target.checked ? 'Enabled' : 'Disabled'}.`);
+        /* FUTURE: UPDATE platform_settings SET [key] = [value] WHERE id = 1 */
       });
     });
   }
 
 
   /* ==========================================================
-     18. CONFIRMATION MODAL
+     20. CONFIRM MODAL
   ========================================================== */
 
-  const confirmModal  = document.getElementById('confirmModal');
-  const modalBackdrop = document.getElementById('modalBackdrop');
-  const modalClose    = document.getElementById('modalClose');
-  const modalCancel   = document.getElementById('modalCancel');
-  const modalConfirm  = document.getElementById('modalConfirm');
-  const modalTitle    = document.getElementById('modalTitle');
-  const modalBody     = document.getElementById('modalBody');
+  const modal        = document.getElementById('aModal');
+  const modalBackdrop= document.getElementById('modalBackdrop');
+  const modalTitle   = document.getElementById('modalTitle');
+  const modalBody    = document.getElementById('modalBody');
+  const modalConfirm = document.getElementById('modalConfirm');
+  const modalCancel  = document.getElementById('modalCancel');
 
-  function openModal(title, body, action) {
-    state.modalAction    = action;
+  function openModal(title, body, onConfirm) {
     modalTitle.textContent = title;
     modalBody.textContent  = body;
-    confirmModal.removeAttribute('hidden');
+    S.pendingModal = onConfirm;
+    modal.hidden   = false;
     document.body.style.overflow = 'hidden';
   }
 
   function closeModal() {
-    confirmModal.setAttribute('hidden', '');
-    state.modalAction = null;
+    modal.hidden             = true;
+    S.pendingModal           = null;
     document.body.style.overflow = '';
   }
 
-  modalClose.addEventListener('click', closeModal);
-  modalCancel.addEventListener('click', closeModal);
-  modalBackdrop.addEventListener('click', closeModal);
+  modalBackdrop?.addEventListener('click', closeModal);
+  modalCancel?.addEventListener('click',   closeModal);
 
-  modalConfirm.addEventListener('click', async () => {
-    const action = state.modalAction;
-    if (!action) { closeModal(); return; }
-
+  modalConfirm?.addEventListener('click', () => {
+    S.pendingModal?.();
     closeModal();
-
-    const actionMessages = {
-      verify:           `${action.name} has been verified.`,
-      unsuspend:        `${action.name} has been unsuspended.`,
-      suspend:          `${action.name} has been suspended.`,
-      delete_user:      `${action.name} has been deleted.`,
-      verify_biz:       `${action.name} has been verified.`,
-      reject_biz:       `${action.name} verification has been rejected.`,
-      suspend_biz:      `${action.name} has been suspended.`,
-      remove_listing:   `Listing "${action.name}" has been removed.`,
-      dismiss_report:   `Report for "${action.name}" has been dismissed.`,
-      remove_founding:  `Founding Member badge removed from ${action.name}.`,
-      remove_pro:       `PRO status removed from ${action.name}.`,
-    };
-
-    showToast(actionMessages[action.action] || 'Action completed.');
-
-    /*
-     FUTURE: Based on action.action, run the corresponding Supabase query:
-
-     'verify':
-       await window._supabase.from('profiles')
-         .update({ is_verified: true }).eq('id', action.id);
-
-     'suspend':
-       await window._supabase.auth.admin.updateUserById(action.id, { ban_duration: 'none' });
-       // (Requires Service Role key — NEVER use in client-side JS)
-
-     'delete_user':
-       await window._supabase.auth.admin.deleteUser(action.id);
-       // (Requires Service Role key — handle via a Supabase Edge Function)
-
-     'remove_founding':
-       await window._supabase.from('profiles')
-         .update({ is_founding_member: false }).eq('id', action.id);
-
-     'remove_pro':
-       await window._supabase.from('profiles')
-         .update({ is_premium: false, premium_expires_at: null }).eq('id', action.id);
-       await window._supabase.from('premium_subscriptions')
-         .update({ status: 'cancelled' }).eq('user_id', action.id).eq('status', 'active');
-    */
   });
 
-  // Attach listeners to all action buttons in a container
-  function attachTableBtnListeners(container) {
+  // Centralised action handler for all entity action buttons
+  function attachActionBtns(container) {
     container.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const 
+        const { action, id, name } = btn.dataset;
+        const msgs = {
+          verify_biz:       `Verify "${name}" as a legitimate JARA business?`,
+          reject_biz:       `Reject verification for "${name}"?`,
+          suspend_biz:      `Suspend "${name}"?`,
+          unsuspend_biz:    `Restore "${name}"?`,
+          verify_user:      `Verify "${name}"?`,
+          suspend_user:     `Suspend "${name}"?`,
+          unsuspend_user:   `Restore "${name}"?`,
+          remove_listing:   `Remove listing "${name}"? This cannot be undone.`,
+          remove_founding:  `Remove Founding Member badge from "${name}"?`,
+          approve_pro:      `Activate JARA PRO for "${name}"?`,
+          reject_pro:       `Reject PRO request from "${name}"?`,
+          remove_pro:       `Remove PRO from "${name}"?`,
+          reactivate_pro:   `Reactivate PRO for "${name}"?`,
+          dismiss_report:   `Dismiss the report for "${name}"?`,
+          warn_user_report: `Send a warning to the user linked to "${name}"?`,
+        };
+
+        const toasts = {
+          verify_biz:       `${name} has been verified.`,
+          reject_biz:       `${name} rejected.`,
+          suspend_biz:      `${name} suspended.`,
+          unsuspend_biz:    `${name} restored.`,
+          verify_user:      `${name} verified.`,
+          suspend_user:     `${name} suspended.`,
+          unsuspend_user:   `${name} restored.`,
+          remove_listing:   `Listing removed.`,
+          remove_founding:  `Founding badge removed from ${name}.`,
+          approve_pro:      `PRO activated for ${name}.`,
+          reject_pro:       `PRO request from ${name} rejected.`,
+          remove_pro:       `PRO removed from ${name}.`,
+          reactivate_pro:   `PRO reactivated for ${name}.`,
+          dismiss_report:   `Report dismissed.`,
+          warn_user_report: `Warning sent.`,
+        };
+
+        openModal(
+          'Confirm Action',
+          msgs[action] || `Proceed with this action on "${name}"?`,
+          () => {
+            showToast(toasts[action] || 'Action completed.');
+            renderGreeting();
+
+            /*
+             FUTURE: Based on action, call the appropriate Supabase function:
+
+             'verify_biz' / 'verify_user':
+               await window._supabase.from('profiles')
+                 .update({ is_verified: true }).eq('id', id);
+
+             'approve_pro':
+               await window._supabase.from('premium_subscriptions')
+                 .update({ status: 'active' }).eq('id', id);
+               await window._supabase.from('profiles')
+                 .update({ is_premium: true, has_pending_pro: false }).eq('id', userId);
+
+             'reject_pro':
+               await window._supabase.from('premium_subscriptions')
+                 .update({ status: 'rejected' }).eq('id', id);
+
+             'remove_founding':
+               await window._supabase.from('profiles')
+                 .update({ is_founding_member: false }).eq('id', id);
+
+             Admin actions requiring Service Role (suspend, delete):
+               → Handle via Supabase Edge Functions to keep keys server-side.
+            */
+          }
+        );
+      });
+    });
+  }
+
+
+  /* ==========================================================
+     21. UTILITY
+  ========================================================== */
+
+  function esc(str) {
+    if (!str && str !== 0) return '';
+    const d = document.createElement('div');
+    d.textContent = String(str);
+    return d.innerHTML;
+  }
+
+  function cap(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  function initials(name) {
+    if (!name) return 'J';
+    const w = name.trim().split(' ');
+    return w.length >= 2
+      ? (w[0][0] + w[w.length - 1][0]).toUpperCase()
+      : name.slice(0, 2).toUpperCase();
+  }
+
+  function countUp(el, target) {
+    if (!el) return;
+    let n = 0;
+    const step = Math.max(1, Math.ceil(target / 18));
+    const t = setInterval(() => {
+      n = Math.min(n + step, target);
+      el.textContent = n >= 1000 ? (n / 1000).toFixed(1) + 'k' : n;
+      if (n >= target) clearInterval(t);
+    }, 40);
+  }
+
+  function showToast(msg) {
+    const ex = document.getElementById('adminToast');
+    if (ex) ex.remove();
+
+    const t = document.createElement('div');
+    t.id = 'adminToast';
+    t.textContent = msg;
+    Object.assign(t.style, {
+      transition: 'opacity 300ms ease, transform 300ms ease',
+      opacity: '0', transform: 'translateY(8px)',
+    });
+    document.body.appendChild(t);
+
+    requestAnimationFrame(() => {
+      t.style.opacity   = '1';
+      t.style.transform = 'translateY(0)';
+    });
+
+    setTimeout(() => {
+      t.style.opacity   = '0';
+      t.style.transform = 'translateY(8px)';
+      setTimeout(() => t.remove(), 320);
+    }, 3200);
+  }
+
+  function renderHome() {
+    renderGreeting();
+    renderKPI();
+    renderQueue();
+    renderHealth();
+  }
+
+
+  /* ==========================================================
+     22. INIT
+  ========================================================== */
+
+  async function init() {
+    const authed = await authGuard();
+    if (!authed) return;
+
+    goTo('home');
+  }
+
+  init();
+
+});
