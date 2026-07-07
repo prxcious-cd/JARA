@@ -1,0 +1,833 @@
+/* ============================================================
+   JARA ∆ — Launch Polish  (global additions)
+   css/jara-polish.css
+
+   This file adds:
+   1.  Global micro-animation tokens
+   2.  Skeleton loader (universal shimmer)
+   3.  Empty state (universal)
+   4.  Error state (universal)
+   5.  Founding Member badge + modal
+   6.  Button micro-press
+   7.  Card hover lift
+   8.  Tab indicator animation
+   9.  Chip active press
+   10. Search bar focus glow
+   11. Bottom nav active pip
+   12. Toast (shared)
+
+   Include AFTER every other CSS file on every page:
+   <link rel="stylesheet" href="../css/jara-polish.css" />
+   (or just add it to each existing page's <head>)
+============================================================ */
+
+
+/* ============================================================
+   1. GLOBAL MICRO-ANIMATION TOKENS
+============================================================ */
+:root {
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out:    cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Shared skeleton colours — works on any bg */
+  --skel-base:  #1A1A2A;
+  --skel-shine: #22223A;
+}
+
+
+/* ============================================================
+   2. SKELETON LOADER (universal shimmer)
+   Apply  .j-skel  to any element that needs a loading state.
+   Remove the class when data arrives.
+============================================================ */
+@keyframes j-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.j-skel {
+  background: linear-gradient(
+    90deg,
+    var(--skel-base)  25%,
+    var(--skel-shine) 50%,
+    var(--skel-base)  75%
+  );
+  background-size: 600px 100%;
+  animation: j-shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Convenience size helpers */
+.j-skel-line  { height: 14px; border-radius: 6px; }
+.j-skel-title { height: 22px; border-radius: 8px; }
+.j-skel-avatar{
+  border-radius: 50% !important;
+  aspect-ratio: 1;
+}
+.j-skel-card  { border-radius: 16px; min-height: 120px; }
+.j-skel-image { border-radius: 12px; aspect-ratio: 4/3; }
+
+
+/* ============================================================
+   3. EMPTY STATE (universal)
+   Usage:
+   <div class="j-empty">
+     <div class="j-empty__icon"><i class="fa-solid fa-box-open"></i></div>
+     <p class="j-empty__title">No listings yet</p>
+     <p class="j-empty__body">Create your first listing…</p>
+     <a href="…" class="j-empty__btn">Create Listing</a>
+   </div>
+============================================================ */
+.j-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+  padding: 3rem 1.5rem;
+  animation: j-fade-up 280ms ease both;
+}
+
+@keyframes j-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.j-empty__icon {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1.5px solid rgba(124, 58, 237, 0.15);
+}
+
+/* Subtle breathing ring */
+.j-empty__icon::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(124, 58, 237, 0.07);
+  animation: j-ring-breathe 3s ease-in-out infinite;
+}
+
+@keyframes j-ring-breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.5; }
+  50%       { transform: scale(1.1); opacity: 0; }
+}
+
+.j-empty__icon i {
+  font-size: 1.875rem;
+  color: #55556A;
+  position: relative;
+  z-index: 1;
+}
+
+.j-empty__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #F4F4F8;
+}
+
+.j-empty__body {
+  font-size: 0.875rem;
+  color: #9090A8;
+  line-height: 1.65;
+  max-width: 260px;
+}
+
+.j-empty__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 11px 24px;
+  background: #7C3AED;
+  color: #fff;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 16px rgba(124, 58, 237, 0.35);
+  transition: background 250ms ease, transform 150ms ease, box-shadow 250ms ease;
+}
+
+.j-empty__btn:hover {
+  background: #6D28D9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px rgba(124, 58, 237, 0.5);
+}
+
+.j-empty__btn:active {
+  transform: scale(0.97);
+}
+
+
+/* ============================================================
+   4. ERROR STATE (universal)
+   Usage:
+   <div class="j-error">
+     <div class="j-error__icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+     <p class="j-error__title">Couldn't load this</p>
+     <p class="j-error__body">Please check your connection and try again.</p>
+     <button class="j-error__btn" type="button">Try Again</button>
+   </div>
+============================================================ */
+.j-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.875rem;
+  padding: 2.5rem 1.5rem;
+  animation: j-fade-up 280ms ease both;
+}
+
+.j-error__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1.5px solid rgba(239, 68, 68, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.j-error__icon i {
+  font-size: 1.5rem;
+  color: #EF4444;
+}
+
+.j-error__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #F4F4F8;
+  letter-spacing: -0.015em;
+}
+
+.j-error__body {
+  font-size: 0.875rem;
+  color: #9090A8;
+  line-height: 1.6;
+  max-width: 260px;
+}
+
+.j-error__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 9px 20px;
+  background: transparent;
+  border: 1.5px solid #2A2A3E;
+  color: #9090A8;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.j-error__btn:hover {
+  border-color: #A78BFA;
+  color: #A78BFA;
+  background: rgba(124, 58, 237, 0.06);
+}
+
+
+/* ============================================================
+   5. FOUNDING MEMBER BADGE (used in profile.html)
+============================================================ */
+.founding-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 5px 14px;
+  background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(252,211,77,0.08));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 9999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #FCD34D;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.founding-badge:hover {
+  background: linear-gradient(135deg, rgba(245,158,11,0.22), rgba(252,211,77,0.12));
+  border-color: rgba(245, 158, 11, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.founding-badge:active {
+  transform: scale(0.97);
+}
+
+/* ---- Founding Member Modal ---- */
+.founding-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  padding: 0;
+}
+
+.founding-modal[hidden] { display: none; }
+
+.founding-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.founding-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 580px;
+  margin: 0 auto;
+  background: #111118;
+  border: 1px solid #2A2A3E;
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  padding: 1.5rem 1.5rem 2.5rem;
+  animation: j-sheet-up 300ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes j-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.founding-modal__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #2A2A3E;
+  margin: 0 auto 1.5rem;
+}
+
+.founding-modal__trophy {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1.5px solid rgba(245, 158, 11, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 1.25rem;
+  animation: j-pop-in 380ms var(--ease-spring) both;
+  animation-delay: 100ms;
+}
+
+@keyframes j-pop-in {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.founding-modal__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: #F4F4F8;
+  text-align: center;
+  margin-bottom: 0.75rem;
+}
+
+.founding-modal__body {
+  font-size: 0.9375rem;
+  color: #9090A8;
+  text-align: center;
+  line-height: 1.7;
+  max-width: 320px;
+  margin: 0 auto 1.5rem;
+}
+
+.founding-modal__body strong {
+  color: #FCD34D;
+}
+
+.founding-modal__pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #F59E0B, #FCD34D);
+  border-radius: 9999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #000;
+  max-width: 220px;
+  margin: 0 auto 1.25rem;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.35);
+}
+
+.founding-modal__close {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #55556A;
+  text-align: center;
+  cursor: pointer;
+  transition: color 150ms ease;
+  background: none;
+  border: none;
+}
+
+.founding-modal__close:hover { color: #9090A8; }
+
+
+/* ============================================================
+   6. BUTTON MICRO-PRESS
+   Add  .j-btn  to any interactive button for press feedback.
+============================================================ */
+.j-btn {
+  transition:
+    transform 120ms var(--ease-out),
+    box-shadow 200ms ease,
+    background 200ms ease,
+    opacity 150ms ease;
+}
+
+.j-btn:hover  { transform: translateY(-1px); }
+.j-btn:active { transform: scale(0.96) !important; }
+
+
+/* ============================================================
+   7. CARD HOVER LIFT
+   Add  .j-card  to any card for hover elevation.
+============================================================ */
+.j-card {
+  transition:
+    transform 220ms var(--ease-out),
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.j-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.j-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+
+/* ============================================================
+   8. TAB INDICATOR ANIMATION
+   Wraps a tab list so the active indicator slides smoothly.
+   No JS needed — pure CSS transition on border-bottom.
+============================================================ */
+.j-tab-btn {
+  transition:
+    color 150ms ease,
+    border-color 200ms ease;
+}
+
+.j-tab-btn.is-active {
+  color: #A78BFA;
+  border-bottom-color: #7C3AED;
+}
+
+
+/* ============================================================
+   9. CHIP ACTIVE PRESS
+============================================================ */
+.j-chip {
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    transform 100ms ease;
+}
+
+.j-chip:active {
+  transform: scale(0.94);
+}
+
+
+/* ============================================================
+   10. SEARCH BAR FOCUS GLOW
+   Add  .j-search  to any search input wrapper.
+============================================================ */
+.j-search-wrap {
+  position: relative;
+  transition: filter 200ms ease;
+}
+
+.j-search-wrap:focus-within {
+  filter: drop-shadow(0 0 8px rgba(124, 58, 237, 0.25));
+}
+
+.j-search-input:focus {
+  border-color: #7C3AED !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15) !important;
+  outline: none;
+}
+
+
+/* ============================================================
+   11. BOTTOM NAV ACTIVE PIP
+   Adds a small glowing dot under the active bottom nav icon.
+============================================================ */
+.bottom-nav__item--active {
+  position: relative;
+}
+
+.bottom-nav__item--active::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #A78BFA;
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.6);
+  animation: j-pip-in 250ms var(--ease-spring) both;
+}
+
+@keyframes j-pip-in {
+  from { transform: translateX(-50%) scale(0); opacity: 0; }
+  to   { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+
+/* ============================================================
+   12. SHARED TOAST (can be used from any page JS)
+============================================================ */
+#jaraToast {
+  position: fixed;
+  bottom: calc(68px + 16px);
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: #1A1A2A;
+  border: 1px solid #2A2A3E;
+  border-radius: 9999px;
+  padding: 10px 20px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #F4F4F8;
+  z-index: 300;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+/* On desktop (no bottom nav) */
+@media (min-width: 860px) {
+  #jaraToast { bottom: 24px; }
+}
+
+
+/* ============================================================
+   FOUNDING MEMBER SECTION — Landing Page
+   (inserted via JS into index.html)
+============================================================ */
+.founding-lp-section {
+  padding: 5rem 1.5rem;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.founding-lp-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(245, 158, 11, 0.07) 0%,
+    rgba(10, 10, 15, 0.0) 60%
+  );
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 28px;
+  padding: 2.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.25rem;
+}
+
+/* Subtle gold corner glow */
+.founding-lp-card::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.founding-lp-card__trophy {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1.5px solid rgba(245, 158, 11, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.25rem;
+  animation: j-pop-in 500ms var(--ease-spring) both;
+  box-shadow: 0 4px 24px rgba(245, 158, 11, 0.2);
+}
+
+.founding-lp-card__tag {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #F59E0B;
+  opacity: 0.75;
+}
+
+.founding-lp-card__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.375rem, 5vw, 1.875rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #F4F4F8;
+  line-height: 1.2;
+}
+
+.founding-lp-card__title span {
+  background: linear-gradient(135deg, #F59E0B, #FCD34D);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.founding-lp-card__desc {
+  font-size: 0.9375rem;
+  color: #9090A8;
+  line-height: 1.7;
+  max-width: 380px;
+}
+
+/* Slot counter */
+.founding-lp-card__counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(10, 10, 15, 0.5);
+  border: 1px solid #2A2A3E;
+  border-radius: 16px;
+  padding: 1rem 2.5rem;
+}
+
+.founding-lp-card__counter-nums {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+}
+
+.founding-lp-card__counter-current {
+  font-size: 2.5rem;
+  color: #F59E0B;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.founding-lp-card__counter-sep {
+  font-size: 1.5rem;
+  color: #55556A;
+}
+
+.founding-lp-card__counter-total {
+  font-size: 1.5rem;
+  color: #55556A;
+}
+
+.founding-lp-card__counter-label {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #55556A;
+}
+
+/* Progress bar */
+.founding-lp-card__bar {
+  width: 100%;
+  max-width: 280px;
+}
+
+.founding-lp-card__bar-track {
+  height: 6px;
+  background: #2A2A3E;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.founding-lp-card__bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #F59E0B, #FCD34D);
+  border-radius: 9999px;
+  transition: width 800ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.founding-lp-card__bar-label {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.375rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.625rem;
+  font-weight: 600;
+}
+
+.founding-lp-card__bar-label span:first-child { color: #F59E0B; }
+.founding-lp-card__bar-label span:last-child  { color: #55556A; }
+
+/* CTA button */
+.founding-lp-card__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 13px 28px;
+  background: linear-gradient(135deg, #F59E0B, #FCD34D);
+  color: #000;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  border-radius: 9999px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(245, 158, 11, 0.35);
+  transition:
+    box-shadow 250ms ease,
+    transform 150ms ease;
+  letter-spacing: 0.01em;
+}
+
+.founding-lp-card__btn:hover {
+  box-shadow: 0 6px 32px rgba(245, 158, 11, 0.5);
+  transform: translateY(-1px);
+}
+
+.founding-lp-card__btn:active {
+  transform: scale(0.97);
+}
+
+.founding-lp-card__fine {
+  font-size: 0.8125rem;
+  color: #55556A;
+  line-height: 1.55;
+  max-width: 300px;
+}
+
+
+/* ============================================================
+   CONSISTENCY — small global overrides
+   These ensure spacing and radii stay uniform across pages
+   that were built before these tokens were finalized.
+============================================================ */
+
+/* Enforce consistent card radius */
+.listing-mini,
+.similar-card,
+.store-card,
+.compact-card,
+.entity-card,
+.biz-row,
+.review-card,
+.pro-req-card,
+.report-card {
+  border-radius: 20px !important;
+}
+
+/* Consistent pill font size */
+.pill,
+.status-pill,
+.activity-status,
+.listing-status,
+.listing-tag {
+  font-size: 0.5625rem !important;
+  letter-spacing: 0.05em;
+}
+
+/* Consistent icon sizing in section titles */
+.section-title i,
+.a-card__title i,
+.activity-section__title i,
+.queue-block__title i {
+  font-size: 0.875rem !important;
+}
+
+/* Prevent text overflow on card titles */
+.listing-mini__title,
+.store-card__title,
+.similar-card__title,
+.entity-card__name,
+.list-item__title,
+.queue-item__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Smooth colour transitions on all interactive borders */
+[class*="card"]:not([class*="founding"]):not([class*="plan"]) {
+  transition:
+    border-color 220ms ease,
+    transform 180ms ease,
+    box-shadow 220ms ease;
+}
+
+
+/* ============================================================
+   REDUCED MOTION — honour system preference
+============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  }
