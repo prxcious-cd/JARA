@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="JARA PRO — Unlock premium features for your campus business." />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>JARA PRO — Upgrade Your Business</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+  <link rel="stylesheet" href="../css/premium.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-client.js"></script>
+</head>
+<body>
+
+  <div class="pro-glow" aria-hidden="true"></div>
+
+  <!-- TOPBAR -->
+  <header class="pro-topbar">
+    <button class="pro-topbar__back" id="backBtn" type="button" aria-label="Go back">
+      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+    </button>
+    <div class="pro-topbar__centre">
+      <span class="pro-topbar__logo">JARA <span>∆</span></span>
+      <span class="pro-topbar__badge">PRO</span>
+    </div>
+    <div style="width:38px" aria-hidden="true"></div>
+  </header>
+
+  <main class="pro-main" id="proMain">
+
+    <!-- ================================================
+         PANEL 1 — LANDING
+    ================================================ -->
+    <div class="pro-panel pro-panel--active" id="panelLanding">
+
+      <!-- Hero -->
+      <section class="pro-hero">
+        <div class="pro-hero__crown-wrap" aria-hidden="true">
+          <div class="pro-hero__ring pro-hero__ring--1"></div>
+          <div class="pro-hero__ring pro-hero__ring--2"></div>
+          <i class="fa-solid fa-crown pro-hero__crown"></i>
+        </div>
+        <h1 class="pro-hero__title">
+          Grow faster<br />with <span class="pro-hero__gradient">JARA PRO</span>
+        </h1>
+        <p class="pro-hero__sub">
+          The premium membership for serious campus businesses.<br />
+          Stand out, get discovered, close more deals.
+        </p>
+      </section>
+
+      <!-- Founding Member block — shown only when user IS a founder -->
+      <div class="founding-block" id="foundingBlock" hidden>
+        <div class="founding-block__icon" aria-hidden="true">
+          <i class="fa-solid fa-trophy"></i>
+        </div>
+        <div>
+          <h2 class="founding-block__title">Lifetime JARA PRO</h2>
+          <p class="founding-block__sub">
+            Congratulations. You already own Lifetime JARA PRO.<br />
+            You are a Founding Member. Every current and future JARA PRO
+            feature is yours at no additional cost.<br /><br />
+            Thank you for believing in JARA from the beginning.
+          </p>
+        </div>
+        <span class="founding-block__badge">🏆 Founding Member</span>
+      </div>
+
+      <!-- Benefits -->
+      <section class="benefits-section">
+        <h2 class="section-label">What you get</h2>
+        <div class="benefits-grid" id="benefitsGrid"></div>
+      </section>
+
+      <!-- Founding Members programme note — shown for non-founders -->
+      <div class="founding-note" id="foundingNote">
+        <div class="founding-note__inner">
+          <span class="founding-note__icon" aria-hidden="true">🏆</span>
+          <div>
+            <p class="founding-note__title">Founding Members</p>
+            <p class="founding-note__body">
+              The first 100 verified JARA members permanently receive
+              <strong>Lifetime JARA PRO</strong> — every current and future
+              feature at no additional cost.
+            </p>
+            <p class="founding-note__count">
+              <span id="foundingUsed">0</span> / 100 slots claimed
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plans — hidden for founders -->
+      <section class="plans-section" id="plansSection">
+        <h2 class="section-label">Choose a plan</h2>
+        <div class="plans-grid" id="plansGrid"></div>
+        <p class="plans-note">
+          Payments are manually verified within 24 hours.<br />
+          No automatic charges. Cancel by not renewing.
+        </p>
+      </section>
+
+      <!-- Active PRO card — shown when user already has active PRO -->
+      <div class="active-pro-card" id="activeProCard" hidden>
+        <div class="active-pro-card__header">
+          <div class="active-pro-card__icon" aria-hidden="true">
+            <i class="fa-solid fa-crown"></i>
+          </div>
+          <div>
+            <h2 class="active-pro-card__title">JARA PRO Active</h2>
+            <p class="active-pro-card__sub" id="activeProPlanLabel">Monthly Plan</p>
+          </div>
+          <span class="active-pro-card__status">Active</span>
+        </div>
+        <div class="active-pro-card__details" id="activeProDetails"></div>
+        <button class="a-btn-outline" id="managePROBtn" type="button">
+          Manage JARA PRO
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <!-- Pending / rejected notice — injected by JS -->
+      <div id="statusNotice"></div>
+
+    </div><!-- /panelLanding -->
+
+
+    <!-- ================================================
+         PANEL 2 — PAYMENT
+    ================================================ -->
+    <div class="pro-panel" id="panelPayment" hidden>
+      <div class="payment-wrap">
+
+        <div class="payment-header">
+          <div class="payment-header__icon" aria-hidden="true">
+            <i class="fa-solid fa-building-columns"></i>
+          </div>
+          <h2 class="payment-header__title">Complete Payment</h2>
+          <p class="payment-header__plan" id="paymentPlanLabel">Monthly — ₦0</p>
+        </div>
+
+        <div class="payment-reminder">
+          <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+          <p>Complete your bank transfer <strong>before</strong> submitting proof below.</p>
+        </div>
+
+        <!-- Bank details -->
+        <div class="bank-card">
+          <div class="bank-card__row">
+            <span class="bank-card__key">Bank</span>
+            <span class="bank-card__val">OPay</span>
+          </div>
+          <div class="bank-card__row">
+            <span class="bank-card__key">Account Name</span>
+            <span class="bank-card__val">Adedeji Precious A</span>
+          </div>
+          <div class="bank-card__row bank-card__row--number">
+            <span class="bank-card__key">Account Number</span>
+            <div class="bank-card__num-row">
+              <span class="bank-card__num" id="accountNumber">9127523472</span>
+              <button class="bank-card__copy" id="copyAccBtn" type="button" aria-label="Copy account number">
+                <i class="fa-regular fa-copy" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <div class="bank-card__row bank-card__row--amount">
+            <span class="bank-card__key">Amount</span>
+            <span class="bank-card__amount" id="bankAmount">₦0</span>
+          </div>
+        </div>
+
+        <!-- Submission form -->
+        <div class="pay-form">
+          <h3 class="pay-form__title">Submit Payment Proof</h3>
+
+          <div class="pro-alert" id="payAlert" role="alert" aria-live="polite" hidden>
+            <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+            <span id="payAlertText"></span>
+          </div>
+
+          <div class="pro-field">
+            <label class="pro-field__label" for="txRef">
+              Transaction Reference <span class="pro-field__req">*</span>
+            </label>
+            <div class="pro-field__wrap">
+              <i class="fa-solid fa-receipt" aria-hidden="true"></i>
+              <input
+                class="pro-field__input"
+                type="text"
+                id="txRef"
+                placeholder="e.g. OPY240128xxxxxx"
+                maxlength="60"
+                autocomplete="off"
+              />
+            </div>
+            <p class="pro-field__hint">Found in OPay or your bank app under Transaction Details.</p>
+          </div>
+
+          <div class="pro-field">
+            <label class="pro-field__label" for="amountPaid">
+              Amount Paid <span class="pro-field__req">*</span>
+            </label>
+            <div class="pro-field__wrap">
+              <i class="fa-solid fa-naira-sign" aria-hidden="true"></i>
+              <input
+                class="pro-field__input"
+                type="number"
+                id="amountPaid"
+                placeholder="Enter exact amount"
+                min="0"
+              />
+            </div>
+            <p class="pro-field__hint">Must match the exact amount for your selected plan.</p>
+          </div>
+
+          <div class="pro-field">
+            <label class="pro-field__label" for="screenshot">
+              Payment Screenshot <span class="pro-field__req">*</span>
+            </label>
+            <label class="upload-area" id="uploadArea" for="screenshot">
+              <div class="upload-area__inner" id="uploadInner">
+                <i class="fa-solid fa-cloud-arrow-up upload-area__icon" aria-hidden="true"></i>
+                <p class="upload-area__text">Tap to upload screenshot</p>
+                <p class="upload-area__hint">JPG, PNG — max 5 MB</p>
+              </div>
+              <input
+                type="file"
+                id="screenshot"
+                accept="image/jpeg,image/png,image/webp"
+                class="upload-area__input"
+                aria-label="Upload payment screenshot"
+              />
+            </label>
+          </div>
+
+          <button class="btn-submit-pay" id="submitPayBtn" type="button" aria-busy="false">
+            <span class="btn-submit-pay__spinner" aria-hidden="true">
+              <i class="fa-solid fa-circle-notch fa-spin"></i>
+            </span>
+            <span class="btn-submit-pay__label">
+              <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+              Submit Payment
+            </span>
+          </button>
+
+          <button class="btn-back-link" id="backToPlans" type="button">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+            Back to plans
+          </button>
+
+        </div>
+      </div>
+    </div><!-- /panelPayment -->
+
+
+    <!-- ================================================
+         PANEL 3 — SUBMITTED SUCCESS
+    ================================================ -->
+    <div class="pro-panel" id="panelSubmitted" hidden>
+      <div class="submitted-wrap">
+
+        <div class="submitted-icon" aria-hidden="true">
+          <div class="submitted-icon__ring submitted-icon__ring--1"></div>
+          <div class="submitted-icon__ring submitted-icon__ring--2"></div>
+          <i class="fa-solid fa-circle-check submitted-icon__glyph"></i>
+        </div>
+
+        <h2 class="submitted-title">Payment Submitted</h2>
+        <p class="submitted-sub">
+          Your payment is currently awaiting verification.<br />
+          Verification normally takes less than 24 hours.
+        </p>
+
+        <div class="submitted-ref-card">
+          <p class="submitted-ref-card__label">Reference Submitted</p>
+          <p class="submitted-ref-card__val" id="submittedRef">—</p>
+        </div>
+
+        <!-- Status tracker -->
+        <div class="status-tracker" aria-label="Payment steps">
+          <div class="tracker-step tracker-step--done">
+            <div class="tracker-step__dot"><i class="fa-solid fa-check" aria-hidden="true"></i></div>
+            <p class="tracker-step__label">Payment Made</p>
+          </div>
+          <div class="tracker-line tracker-line--done" aria-hidden="true"></div>
+          <div class="tracker-step tracker-step--done">
+            <div class="tracker-step__dot"><i class="fa-solid fa-check" aria-hidden="true"></i></div>
+            <p class="tracker-step__label">Proof Submitted</p>
+          </div>
+          <div class="tracker-line" aria-hidden="true"></div>
+          <div class="tracker-step tracker-step--waiting">
+            <div class="tracker-step__dot tracker-step__dot--pulse">
+              <i class="fa-solid fa-clock" aria-hidden="true"></i>
+            </div>
+            <p class="tracker-step__label">Admin Verification</p>
+          </div>
+          <div class="tracker-line" aria-hidden="true"></div>
+          <div class="tracker-step tracker-step--waiting">
+            <div class="tracker-step__dot"><i class="fa-solid fa-crown" aria-hidden="true"></i></div>
+            <p class="tracker-step__label">PRO Activated</p>
+          </div>
+        </div>
+
+        <a href="../explore/index.html" class="btn-explore">
+          <i class="fa-solid fa-compass" aria-hidden="true"></i>
+          Continue Exploring
+        </a>
+        <button class="btn-back-link" id="checkStatusBtn" type="button">
+          Check payment status
+        </button>
+
+      </div>
+    </div><!-- /panelSubmitted -->
+
+
+    <!-- ================================================
+         PANEL 4 — PAYMENT STATUS
+    ================================================ -->
+    <div class="pro-panel" id="panelStatus" hidden>
+      <div class="status-wrap">
+
+        <div class="status-wrap__header">
+          <h2 class="status-wrap__title">Payment Status</h2>
+          <p class="status-wrap__sub">Your most recent PRO payment request.</p>
+        </div>
+
+        <div class="status-card" id="statusCard">
+          <div class="status-card__top">
+            <div class="status-card__icon" id="statusIcon">
+              <i class="fa-solid fa-clock" aria-hidden="true"></i>
+            </div>
+            <div>
+              <p class="status-card__label" id="statusLabel">Pending Verification</p>
+              <p class="status-card__date"  id="statusDate">Submitted —</p>
+            </div>
+          </div>
+          <div class="status-card__rows" id="statusRows"></div>
+          <div class="status-card__rejection" id="rejectionBlock" hidden>
+            <p class="status-card__rejection-label">Rejection Reason</p>
+            <p class="status-card__rejection-reason" id="rejectionReason">—</p>
+            <button class="a-btn-outline a-btn-outline--sm" id="resubmitBtn" type="button">
+              Submit Again
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-back-link" id="backFromStatus" type="button">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          Back
+        </button>
+
+      </div>
+    </div><!-- /panelStatus -->
+
+
+    <!-- ================================================
+         PANEL 5 — MANAGE PRO (active members)
+    ================================================ -->
+    <div class="pro-panel" id="panelManage" hidden>
+      <div class="manage-wrap">
+
+        <div class="manage-hero" aria-hidden="true">
+          <i class="fa-solid fa-crown manage-hero__crown"></i>
+        </div>
+
+        <h2 class="manage-title">JARA PRO</h2>
+
+        <div class="manage-card" id="manageCard"></div>
+
+        <button class="btn-back-link" id="backFromManage" type="button">
+          <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+          Back
+        </button>
+
+      </div>
+    </div><!-- /panelManage -->
+
+  </main>
+
+  <script src="../js/premium.js"></script>
+</body>
+  </html>
