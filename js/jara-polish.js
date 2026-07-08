@@ -229,7 +229,7 @@
           </div>
         </div>
 
-        <a href="/auth/signup.html" class="founding-lp-card__btn">
+        <button class="founding-lp-card__btn" id="foundingClaimBtn" type="button">
           <i class="fa-solid fa-crown" aria-hidden="true"></i>
           Claim Your Spot
         </a>
