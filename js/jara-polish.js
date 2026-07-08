@@ -250,7 +250,24 @@
         const fill = document.getElementById('foundingLpFill');
         if (fill) fill.style.width = pct + '%';
       }, 300);
-    });
+    // Wire up the Claim button
+    const claimBtn = document.getElementById('foundingClaimBtn');
+    if (claimBtn) {
+      claimBtn.addEventListener('click', async () => {
+        try {
+          const { data: { session } } = await window._supabase.auth.getSession();
+          if (session) {
+            // Already logged in — send to onboarding / verification
+            window.location.href = 'onboarding/index.html';
+          } else {
+            // Not logged in — send to sign up
+            window.location.href = 'auth/signup.html';
+          }
+        } catch {
+          // Supabase unavailable — default to sign up
+          window.location.href = 'auth/signup.html';
+        }
+      });
   }
 
 
