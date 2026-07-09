@@ -192,7 +192,12 @@
   </main>
 
   <!-- Login page logic -->
-  <script src="../js/login.js"></script>
+  <script src="../js/auth-guard.js"></script>
+<script src="../js/login.js"></script>
+
+<script>
+  JARAAuth.redirectIfLoggedIn();
+</script>
 
 </body>
   </html>
