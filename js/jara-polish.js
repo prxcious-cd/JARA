@@ -250,9 +250,6 @@
         const fill = document.getElementById('foundingLpFill');
         if (fill) fill.style.width = pct + '%';
       }, 300);
-      }
-    });
-  }
     // Wire up the Claim button
     const claimBtn = document.getElementById('foundingClaimBtn');
     if (claimBtn) {
