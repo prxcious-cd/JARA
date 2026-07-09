@@ -609,6 +609,21 @@
     </a>
   </nav>
 
-  <script src="../js/sell.js"></script>
+  
+<script src="../js/auth-guard.js"></script>
+<script src="../js/sell.js"></script>
+
+<script>
+  JARAAuth.requireAuth().then(({ user, profile }) => {
+    window.__JARA_USER = user;
+    window.__JARA_PROFILE = profile;
+
+    /*
+     FUTURE: Pre-fill the seller's name, account_type and school
+     in the create listing form using profile data.
+    */
+  });
+</script>
+
 </body>
-        </html>
+</html>
