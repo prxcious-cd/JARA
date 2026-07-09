@@ -455,6 +455,14 @@
     </div>
   </div>
 
-  <script src="../js/admin.js"></script>
+  <script src="../js/auth-guard.js"></script>
+<script src="../js/admin.js"></script>
+
+<script>
+  JARAAuth.requireAdmin().then(({ user, profile }) => {
+    window.__JARA_USER = user;
+    window.__JARA_PROFILE = profile;
+  });
+</script>
 </body>
           </html>
