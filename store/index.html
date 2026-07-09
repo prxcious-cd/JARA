@@ -486,6 +486,23 @@
     </a>
   </nav>
 
-  <script src="../js/store.js"></script>
+  <script src="../js/auth-guard.js"></script>
+<script src="../js/store.js"></script>
+
+<script>
+  /*
+   Store page is partially public — guests can view stores
+   but cannot follow, save or contact without logging in.
+  */
+  JARAAuth.getCurrentUser().then(result => {
+    window.__JARA_USER = result?.user || null;
+    window.__JARA_PROFILE = result?.profile || null;
+
+    /*
+     FUTURE: If user is null, disable the Follow button and
+     show "Log in to contact this seller" on the contact buttons.
+    */
+  });
+</script>
 </body>
-  </html>
+</html>
