@@ -330,7 +330,14 @@
   </main>
 
   <!-- Signup logic -->
-  <script src="../js/signup.js"></script>
+  <!-- Signup logic -->
+<script src="../js/auth-guard.js"></script>
+<script src="../js/signup.js"></script>
+
+<script>
+  // Redirect already-logged-in users away from signup page
+  JARAAuth.redirectIfLoggedIn();
+</script>
 
 </body>
   </html>
