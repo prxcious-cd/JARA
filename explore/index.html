@@ -224,7 +224,17 @@
     </a>
   </nav>
 
+...
+</nav>
+
+<script src="../js/auth-guard.js"></script>
+<script src="../js/explore.js"></script>
+<script>
+  JARAAuth.requireAuth().then(({ user, profile }) => {
+    window.__JARA_USER = user;
+    window.__JARA_PROFILE = profile;
+  });
+</script>
 
 </body>
-<script src="../js/explore.js"></script>
-  </html>
+</html>
