@@ -123,7 +123,6 @@
       document.getElementById('foundingModalBackdrop')?.addEventListener('click', closeFoundingModal);
       document.getElementById('foundingModalClose')?.addEventListener('click', closeFoundingModal);
 
-      // Close on Escape
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') closeFoundingModal();
       });
@@ -144,7 +143,7 @@
 
   /* ==========================================================
      2. FOUNDING MEMBER SECTION — LANDING PAGE
-     Injected into index.html before the CTA section.
+     Auto-injected into index.html before the CTA / footer.
 
      FUTURE: Replace foundingCount with a real Supabase query:
        const { count } = await window._supabase
@@ -155,20 +154,24 @@
 
   function injectFoundingSection() {
     // Only runs on the main landing page
+    const path = window.location.pathname;
     const isLanding =
-      window.location.pathname.endsWith('index.html') &&
-      !window.location.pathname.includes('/admin') &&
-      !window.location.pathname.includes('/premium') &&
-      !window.location.pathname.includes('/auth') &&
-      !window.location.pathname.includes('/onboarding');
+      (path === '/' ||
+       path.endsWith('/index.html') ||
+       path.endsWith('/jara/') ||
+       path.endsWith('/jara/index.html')) &&
+      !path.includes('/admin') &&
+      !path.includes('/premium') &&
+      !path.includes('/auth') &&
+      !path.includes('/onboarding') &&
+      !path.includes('/pages');
 
     if (!isLanding) return;
 
     // Don't inject twice
     if (document.getElementById('jaraFoundingSection')) return;
 
-    // Find anchor — insert before the final CTA / footer section
-    // Works even if the landing page section order changes.
+    // Find anchor — insert before the final CTA or footer
     const anchor =
       document.querySelector('.cta-section') ||
       document.querySelector('footer') ||
@@ -205,7 +208,8 @@
         </p>
 
         <!-- Slot counter -->
-        <div class="founding-lp-card__counter" aria-label="${FOUNDING_USED} of ${FOUNDING_TOTAL} slots claimed">
+        <div class="founding-lp-card__counter"
+             aria-label="${FOUNDING_USED} of ${FOUNDING_TOTAL} slots claimed">
           <div class="founding-lp-card__counter-nums">
             <span class="founding-lp-card__counter-current">${FOUNDING_USED}</span>
             <span class="founding-lp-card__counter-sep">/</span>
@@ -215,13 +219,16 @@
         </div>
 
         <!-- Progress bar -->
-        <div class="founding-lp-card__bar" role="progressbar"
-             aria-valuenow="${FOUNDING_USED}" aria-valuemin="0" aria-valuemax="${FOUNDING_TOTAL}"
+        <div class="founding-lp-card__bar"
+             role="progressbar"
+             aria-valuenow="${FOUNDING_USED}"
+             aria-valuemin="0"
+             aria-valuemax="${FOUNDING_TOTAL}"
              aria-label="${pct}% of founding slots claimed">
           <div class="founding-lp-card__bar-track">
             <div class="founding-lp-card__bar-fill"
                  id="foundingLpFill"
-                 style="width: 0%"></div>
+                 style="width:0%"></div>
           </div>
           <div class="founding-lp-card__bar-label">
             <span>${FOUNDING_USED} claimed</span>
@@ -229,10 +236,11 @@
           </div>
         </div>
 
+        <!-- CTA button — JS wires up the correct destination -->
         <button class="founding-lp-card__btn" id="foundingClaimBtn" type="button">
           <i class="fa-solid fa-crown" aria-hidden="true"></i>
           Claim Your Spot
-        </a>
+        </button>
 
         <p class="founding-lp-card__fine">
           Create a free JARA account and complete verification
@@ -244,44 +252,81 @@
 
     anchor.parentNode?.insertBefore(section, anchor);
 
-    // Animate bar fill after paint
+    // Animate progress bar fill after paint
     requestAnimationFrame(() => {
       setTimeout(() => {
         const fill = document.getElementById('foundingLpFill');
         if (fill) fill.style.width = pct + '%';
       }, 300);
-    // Wire up the Claim button
+    });
+
+    // ── Wire up the Claim Your Spot button ─────────────────────
+    // If logged in  → onboarding / verification flow
+    // If logged out → sign up page
+    // Never leads to a 404.
     const claimBtn = document.getElementById('foundingClaimBtn');
     if (claimBtn) {
       claimBtn.addEventListener('click', async () => {
         try {
-          const { data: { session } } = await window._supabase.auth.getSession();
-          if (session) {
-            // Already logged in — send to onboarding / verification
-            window.location.href = 'onboarding/index.html';
+          // Determine correct base path (root vs /jara/ subdirectory)
+          const base = getBasePath();
+
+          if (window._supabase) {
+            const { data: { session } } = await window._supabase.auth.getSession();
+            if (session) {
+              // Already logged in — send to onboarding / verification
+              window.location.href = base + 'onboarding/index.html';
+            } else {
+              // Not logged in — send to sign up
+              window.location.href = base + 'auth/signup.html';
+            }
           } else {
-            // Not logged in — send to sign up
-            window.location.href = 'auth/signup.html';
+            // Supabase not available — default to sign up
+            window.location.href = base + 'auth/signup.html';
           }
         } catch {
-          // Supabase unavailable — default to sign up
-          window.location.href = 'auth/signup.html';
+          // Any error — safe fallback to sign up
+          window.location.href = getBasePath() + 'auth/signup.html';
         }
       });
+    }
+  }
+
+  /**
+   * Works out the correct root path whether the site is hosted at:
+   *   /              (e.g. custom domain)
+   *   /jara/         (e.g. GitHub Pages with repo name)
+   */
+  function getBasePath() {
+    const path = window.location.pathname;
+
+    // GitHub Pages with repo subfolder, e.g. /jara/index.html
+    const match = path.match(/^(\/[^/]+\/)/);
+    if (match && match[1] !== '/') {
+      // Check if the first segment looks like a repo name (not a page folder)
+      const segment = match[1].replace(/\//g, '');
+      const pageFolders = ['auth','admin','premium','explore','search','sell',
+                           'activity','profile','store','listing','onboarding','pages'];
+      if (!pageFolders.includes(segment)) {
+        return match[1]; // e.g. /jara/
+      }
+    }
+
+    return '/'; // root deployment
   }
 
 
   /* ==========================================================
      3. UNIVERSAL EMPTY STATE HELPER
-     Exported as window.jaraEmpty(container, config)
+     window.jaraEmpty(container, config)
 
      config = {
-       icon:    'fa-solid fa-box-open',   // Font Awesome class
-       title:   'No listings yet',
-       body:    'Create your first listing and get discovered.',
-       btnLabel:'Create Listing',          // optional
-       btnHref: '/sell/index.html',        // optional
-       btnAction: fn,                      // optional — overrides href
+       icon:      'fa-solid fa-box-open',
+       title:     'No listings yet',
+       body:      'Create your first listing and get discovered.',
+       btnLabel:  'Create Listing',     // optional
+       btnHref:   '/sell/index.html',   // optional
+       btnAction: fn,                   // optional — overrides href
      }
   ========================================================== */
 
@@ -322,12 +367,12 @@
 
   /* ==========================================================
      4. UNIVERSAL ERROR STATE HELPER
-     Exported as window.jaraError(container, config)
+     window.jaraError(container, config)
 
      config = {
-       title:   'Couldn\'t load this',
+       title:   "Couldn't load this",
        body:    'Please check your connection and try again.',
-       onRetry: fn,   // optional callback
+       onRetry: fn,   // optional
      }
   ========================================================== */
 
@@ -362,8 +407,8 @@
 
   /* ==========================================================
      5. UNIVERSAL SKELETON HELPERS
-     window.jaraSkel(el)       — add shimmer to element
-     window.jaraUnskel(el)     — remove shimmer from element
+     window.jaraSkel(el)    — add shimmer
+     window.jaraUnskel(el)  — remove shimmer
   ========================================================== */
 
   window.jaraSkel = function (el) {
@@ -411,13 +456,12 @@
 
   /* ==========================================================
      7. MICRO-ANIMATION INIT
-     Attaches .j-btn press class to all primary action buttons
-     and .j-card hover lift to all listing / entity cards,
-     without overriding existing transitions.
+     Attaches .j-btn press and .j-card hover lift classes
+     to matching elements without overriding existing transitions.
   ========================================================== */
 
   function initMicroAnimations() {
-    // Button press on all primary / submit buttons
+    // Button press feedback
     const btnSelectors = [
       '.btn-submit-pay',
       '.plan-card__btn',
@@ -436,13 +480,12 @@
       btn.classList.add('j-btn');
     });
 
-    // Card hover lift on listing / entity cards
+    // Card hover lift
     const cardSelectors = [
       '.listing-mini',
       '.similar-card',
       '.compact-card',
       '.store-card',
-      '.similar-card',
       '.plan-card',
       '.benefit-card',
       '.kpi-card',
@@ -454,7 +497,7 @@
       card.classList.add('j-card');
     });
 
-    // Tab button animation class
+    // Tab and chip animation
     document.querySelectorAll(
       '.content-tab, .ac-tab, .tab, .filter-chip, .notif-filter, .chip'
     ).forEach(tab => {
@@ -468,6 +511,7 @@
     ).forEach(wrap => {
       wrap.classList.add('j-search-wrap');
     });
+
     document.querySelectorAll(
       '.field__input, .a-search, .admin-search__input'
     ).forEach(input => {
@@ -478,8 +522,6 @@
 
   /* ==========================================================
      8. AUTO-INIT
-     Runs after DOM is ready; also re-runs on any SPA-style
-     content injection (mutation observer).
   ========================================================== */
 
   function init() {
@@ -491,12 +533,10 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
-    // DOM already ready
     init();
   }
 
-  // Re-apply micro-animations when new cards are injected
-  // (covers dynamic renders like the explore / search grids)
+  // Re-apply when new content is dynamically injected
   const observer = new MutationObserver(() => {
     initMicroAnimations();
     initFoundingBadge();
