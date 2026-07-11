@@ -1,32 +1,50 @@
 /* ============================================================
-   JARA ∆ — Store Page  (profile-integrated)
+   JARA ∆ — Store Page  (listings-integrated)
    js/store.js
 
-   Loads the store owner's profile from Supabase and
-   renders it on the store page.
-
-   Public page — guests can view stores without logging in.
-   getCurrentUser() is used (non-redirecting).
+   Loads real store profile + listings from Supabase.
 
    Depends on:
-     - window._supabase   (supabase-client.js)
-     - window.JARAAuth    (auth-guard.js)
-     - window.JARAProfile (jara-profile.js)
+     - window._supabase    (supabase-client.js)
+     - window.JARAAuth     (auth-guard.js)
+     - window.JARAProfile  (jara-profile.js)
+     - window.JARAListings (jara-listings.js)
+
+   URL params:
+     ?id=USER_ID   — view a specific seller's store
+     (no param)    — view own store
 
    TABLE OF CONTENTS
-   1.  DOM refs
-   2.  Detect whose store this is
+   1.  State
+   2.  DOM refs
    3.  Load store owner profile
-   4.  Render store
-   5.  Guest / owner UI
-   6.  Error state
-   7.  Init
+   4.  Render store header
+   5.  Load + render listings
+   6.  Owner UI
+   7.  Empty + error states
+   8.  Init
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', async () => {
 
   /* ==========================================================
-     1. DOM REFS
+     1. STATE
+  ========================================================== */
+
+  const S = {
+    ownerId:   null,
+    profile:   null,
+    isOwner:   false,
+    listings:  [],
+    offset:    0,
+    limit:     20,
+    total:     0,
+    activeType: null,
+  };
+
+
+  /* ==========================================================
+     2. DOM REFS
   ========================================================== */
 
   const storeLogoImg      = document.getElementById('storeLogoImg');
@@ -40,82 +58,48 @@ document.addEventListener('DOMContentLoaded', async () => {
   const storeVerified     = document.getElementById('storeVerifiedBadge');
   const storePro          = document.getElementById('storeProBadge');
   const storeFounding     = document.getElementById('storeFoundingBadge');
+  const storeListingCount = document.getElementById('storeListingCount');
+  const storeListingsGrid = document.getElementById('storeListingsGrid');
   const editStoreBtn      = document.getElementById('editStoreBtn');
-  const storeError        = document.getElementById('storeError');
-
-
-  /* ==========================================================
-     2. DETECT WHOSE STORE THIS IS
-     Store pages are accessed via ?id=USER_ID in the URL.
-     If no id param, assume it's the logged-in user's own store.
-  ========================================================== */
-
-  const params      = new URLSearchParams(window.location.search);
-  const storeUserId = params.get('id') || null;
+  const addListingBtn     = document.getElementById('addListingBtn');
+  const typeChips         = document.querySelectorAll('[data-store-type]');
 
 
   /* ==========================================================
      3. LOAD STORE OWNER PROFILE
   ========================================================== */
 
-  async function loadStoreProfile(userId) {
+  const params      = new URLSearchParams(window.location.search);
+  const storeUserId = params.get('id') || null;
+
+  async function loadOwnerProfile(userId) {
     const sb = window._supabase;
-    if (!sb) return null;
+    if (!sb || !userId) return null;
 
-    if (!userId) return null;
+    const { data, error } = await sb
+      .from('profiles')
+      .select(`
+        id, jara_id, full_name, username, avatar_url, account_type,
+        bio, school, location, business_name, business_category,
+        business_description, phone, whatsapp, website,
+        is_verified, is_founding_member, is_premium, pro_status, created_at
+      `)
+      .eq('id', userId)
+      .single();
 
-    try {
-      /*
-       FUTURE: Join with listings count, reviews average etc.
-       FUTURE: Check if viewing user has saved this store.
-      */
-      const { data: profile, error } = await sb
-        .from('profiles')
-        .select(`
-          id,
-          jara_id,
-          full_name,
-          username,
-          avatar_url,
-          account_type,
-          bio,
-          school,
-          location,
-          business_name,
-          business_category,
-          business_description,
-          phone,
-          whatsapp,
-          website,
-          is_verified,
-          is_founding_member,
-          is_premium,
-          pro_status,
-          created_at
-        `)
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('Store: loadStoreProfile error:', error.message);
-        return null;
-      }
-
-      return profile;
-
-    } catch (err) {
-      console.error('Store: loadStoreProfile unexpected error:', err.message);
+    if (error) {
+      console.error('Store: loadOwnerProfile error:', error.message);
       return null;
     }
+    return data;
   }
 
 
   /* ==========================================================
-     4. RENDER STORE
+     4. RENDER STORE HEADER
   ========================================================== */
 
-  function renderStore(profile) {
-    /* ---- Logo ---- */
+  function renderStoreHeader(profile) {
     const url = JARAProfile.getAvatarUrl(profile);
     if (url && storeLogoImg) {
       storeLogoImg.src = url;
@@ -128,135 +112,225 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (storeLogoImg) storeLogoImg.setAttribute('hidden', '');
     }
 
-    /* ---- Name ---- */
-    if (storeName) {
-      storeName.textContent = JARAProfile.getDisplayName(profile) || 'JARA Business';
-    }
+    if (storeName)     storeName.textContent     = JARAProfile.getDisplayName(profile) || 'JARA Business';
+    if (storeCategory) { storeCategory.textContent = profile.business_category || ''; storeCategory.hidden = !profile.business_category; }
+    if (storeDesc)     { storeDesc.textContent     = profile.business_description || profile.bio || ''; storeDesc.hidden = !(profile.business_description || profile.bio); }
+    if (storeLocation) { storeLocation.textContent = profile.location || ''; storeLocation.hidden = !profile.location; }
 
-    /* ---- Category ---- */
-    if (storeCategory) {
-      storeCategory.textContent = profile.business_category || '';
-      storeCategory.hidden = !profile.business_category;
-    }
-
-    /* ---- Description ---- */
-    if (storeDesc) {
-      storeDesc.textContent = profile.business_description || profile.bio || '';
-      storeDesc.hidden = !(profile.business_description || profile.bio);
-    }
-
-    /* ---- Location ---- */
-    if (storeLocation) {
-      storeLocation.textContent = profile.location || '';
-      storeLocation.hidden = !profile.location;
-    }
-
-    /* ---- Contact links ---- */
     if (storeWhatsapp) {
       if (profile.whatsapp) {
-        const num = profile.whatsapp.replace(/\D/g, '');
-        storeWhatsapp.href = `https://wa.me/${num}`;
+        storeWhatsapp.href = `https://wa.me/${profile.whatsapp.replace(/\D/g, '')}`;
         storeWhatsapp.removeAttribute('hidden');
-      } else {
-        storeWhatsapp.setAttribute('hidden', '');
-      }
+      } else { storeWhatsapp.setAttribute('hidden', ''); }
     }
-
     if (storePhone) {
       if (profile.phone) {
         storePhone.href = `tel:${profile.phone}`;
         storePhone.removeAttribute('hidden');
-      } else {
-        storePhone.setAttribute('hidden', '');
-      }
+      } else { storePhone.setAttribute('hidden', ''); }
     }
 
-    /* ---- Badges ---- */
-    if (storeVerified)  storeVerified.hidden  = !profile.is_verified;
-    if (storePro)       storePro.hidden        = !JARAProfile.isPro(profile);
-    if (storeFounding)  storeFounding.hidden   = !JARAProfile.isFounder(profile);
+    if (storeVerified) storeVerified.hidden = !profile.is_verified;
+    if (storePro)      storePro.hidden       = !JARAProfile.isPro(profile);
+    if (storeFounding) storeFounding.hidden  = !JARAProfile.isFounder(profile);
 
-    /* ---- Page title ---- */
     const name = JARAProfile.getDisplayName(profile);
     if (name) document.title = `${name} — JARA ∆`;
   }
 
 
   /* ==========================================================
-     5. GUEST / OWNER UI
-     Show "Edit Store" button only to the store owner.
+     5. LOAD + RENDER LISTINGS
   ========================================================== */
 
-  async function applyOwnerUI(storeOwnerId) {
-    const current = await JARAAuth.getCurrentUser();
-    if (!current) return;
+  function buildStoreCard(listing) {
+    const cover = JARAListings.getCoverImage(listing);
+    const price = JARAListings.formatPrice(listing);
+    const ago   = JARAListings.timeAgo(listing.created_at);
 
-    const isOwner = current.user.id === storeOwnerId;
-    if (editStoreBtn) editStoreBtn.hidden = !isOwner;
+    const card = document.createElement('a');
+    card.className = 'compact-card j-card';
+    card.href      = `../listing/index.html?id=${listing.id}`;
+    card.setAttribute('aria-label', listing.title);
+
+    card.innerHTML = `
+      <div class="compact-card__img-wrap">
+        ${cover
+          ? `<img class="compact-card__img" src="${esc(cover)}"
+                  alt="${esc(listing.title)}" loading="lazy" />`
+          : `<div class="compact-card__img-placeholder" aria-hidden="true">
+               <i class="fa-solid fa-image"></i>
+             </div>`
+        }
+      </div>
+      <div class="compact-card__body">
+        <p class="compact-card__title">${esc(listing.title)}</p>
+        <p class="compact-card__price">${esc(price)}</p>
+        <p class="compact-card__time">${esc(ago)}</p>
+      </div>
+      ${S.isOwner
+        ? `<a class="compact-card__edit" href="../sell/index.html?edit=${listing.id}"
+               aria-label="Edit listing">
+             <i class="fa-solid fa-pen" aria-hidden="true"></i>
+           </a>`
+        : ''
+      }
+    `;
+
+    return card;
   }
 
+  function showStoreSkeletons(count = 6) {
+    if (!storeListingsGrid) return;
+    storeListingsGrid.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const el = document.createElement('div');
+      el.className = 'compact-card j-skel j-skel-card';
+      el.setAttribute('aria-hidden', 'true');
+      storeListingsGrid.appendChild(el);
+    }
+  }
 
-  /* ==========================================================
-     6. ERROR STATE
-  ========================================================== */
+  async function loadStoreListings(reset = false) {
+    if (!S.ownerId) return;
 
-  function showError() {
-    if (!storeError) {
-      if (window.jaraError && storeName) {
-        window.jaraError(storeName.closest('section') || document.body, {
-          title:   "Couldn't load this store",
-          body:    'Please check your connection and try again.',
-          onRetry: () => window.location.reload(),
-        });
-      }
+    if (reset) {
+      S.offset   = 0;
+      S.listings = [];
+      showStoreSkeletons();
+    }
+
+    const { data, count, error } = await JARAListings.fetchByOwner(S.ownerId, {
+      type:   S.activeType,
+      limit:  S.limit,
+      offset: S.offset,
+      status: S.isOwner ? null : 'active', // owners see all statuses
+    });
+
+    if (reset && storeListingsGrid) storeListingsGrid.innerHTML = '';
+
+    if (error) {
+      showStoreError();
       return;
     }
-    storeError.removeAttribute('hidden');
+
+    S.listings  = reset ? data : [...S.listings, ...data];
+    S.total     = count;
+    S.offset   += data.length;
+
+    if (storeListingCount) {
+      storeListingCount.textContent = S.total;
+    }
+
+    if (data.length === 0 && reset) {
+      showStoreEmpty();
+    } else {
+      data.forEach(listing => {
+        storeListingsGrid?.appendChild(buildStoreCard(listing));
+      });
+    }
+  }
+
+  // Type filter chips on store page
+  typeChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const type     = chip.dataset.storeType;
+      S.activeType   = S.activeType === type ? null : type;
+      typeChips.forEach(c => c.classList.toggle('chip--active', c.dataset.storeType === S.activeType));
+      loadStoreListings(true);
+    });
+  });
+
+
+  /* ==========================================================
+     6. OWNER UI
+  ========================================================== */
+
+  async function applyOwnerUI(profileId) {
+    const current = await JARAAuth.getCurrentUser();
+    if (!current) return;
+    S.isOwner = current.user.id === profileId;
+    if (editStoreBtn) editStoreBtn.hidden = !S.isOwner;
+    if (addListingBtn) addListingBtn.hidden = !S.isOwner;
   }
 
 
   /* ==========================================================
-     7. INIT
+     7. EMPTY + ERROR STATES
+  ========================================================== */
+
+  function showStoreEmpty() {
+    if (!storeListingsGrid) return;
+    if (window.jaraEmpty) {
+      window.jaraEmpty(storeListingsGrid, {
+        icon:     'fa-solid fa-box-open',
+        title:    'No listings yet',
+        body:     S.isOwner
+          ? 'Create your first listing to start selling.'
+          : 'This store has no active listings right now.',
+        btnLabel: S.isOwner ? 'Create Listing' : null,
+        btnHref:  S.isOwner ? '../sell/index.html' : null,
+      });
+    }
+  }
+
+  function showStoreError() {
+    if (!storeListingsGrid) return;
+    if (window.jaraError) {
+      window.jaraError(storeListingsGrid, {
+        title:   "Couldn't load listings",
+        body:    'Please check your connection and try again.',
+        onRetry: () => loadStoreListings(true),
+      });
+    }
+  }
+
+
+  /* ==========================================================
+     8. INIT
   ========================================================== */
 
   async function init() {
-    // Show skeletons on key elements
-    [storeName, storeCategory, storeDesc].forEach(el => {
-      el?.classList.add('j-skel');
-    });
+    // Skeleton for header
+    [storeName, storeDesc].forEach(el => el?.classList.add('j-skel'));
 
     try {
-      let profile = null;
+      let profile;
 
       if (storeUserId) {
-        // Viewing someone else's store
-        profile = await loadStoreProfile(storeUserId);
+        S.ownerId = storeUserId;
+        profile   = await loadOwnerProfile(storeUserId);
       } else {
-        // Viewing own store — use cached profile
-        profile = await JARAProfile.load();
+        profile   = await JARAProfile.load();
+        S.ownerId = profile?.id || null;
       }
 
-      [storeName, storeCategory, storeDesc].forEach(el => {
-        el?.classList.remove('j-skel');
-      });
+      [storeName, storeDesc].forEach(el => el?.classList.remove('j-skel'));
 
       if (!profile) {
-        showError();
+        showStoreError();
         return;
       }
 
-      renderStore(profile);
+      S.profile = profile;
+      renderStoreHeader(profile);
       await applyOwnerUI(profile.id);
+      await loadStoreListings(true);
 
     } catch (err) {
       console.error('Store init error:', err.message);
-      [storeName, storeCategory, storeDesc].forEach(el => {
-        el?.classList.remove('j-skel');
-      });
-      showError();
+      [storeName, storeDesc].forEach(el => el?.classList.remove('j-skel'));
+      showStoreError();
     }
   }
 
   init();
+
+  function esc(str) {
+    if (!str && str !== 0) return '';
+    const d = document.createElement('div');
+    d.textContent = String(str);
+    return d.innerHTML;
+  }
 
 });
