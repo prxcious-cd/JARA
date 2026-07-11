@@ -300,13 +300,16 @@
     </a>
   </nav>
 
-  <script src="../js/auth-guard.js"></script>
+<script src="../js/auth-guard.js"></script>
+<script src="../js/jara-profile.js"></script>
+<script src="../js/jara-listings.js"></script>
 <script src="../js/search.js"></script>
 <script>
   JARAAuth.requireAuth().then(({ user, profile }) => {
-    window.__JARA_USER = user;
+    window.__JARA_USER    = user;
     window.__JARA_PROFILE = profile;
   });
 </script>
+  
 </body>
 </html>
