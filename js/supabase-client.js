@@ -2,29 +2,37 @@
    JARA ∆ — Supabase Client
    js/supabase-client.js
 
-   Single shared Supabase instance used across all pages.
-   Import this file in every HTML page that needs Supabase.
+   Initialises the Supabase client once and exposes it as
+   window._supabase for use across all page scripts.
 
-   HOW TO FIND YOUR CREDENTIALS:
-   1. Go to https://supabase.com
-   2. Open your project
-   3. Click "Project Settings" (gear icon, left sidebar)
-   4. Click "API"
-   5. Copy "Project URL" → paste as SUPABASE_URL
-   6. Copy "anon public" key → paste as SUPABASE_ANON_KEY
+   Load this as the FIRST script on every page.
 ============================================================ */
 
-/* ==========================
-   CHANGE THIS
-   Replace both values below with your real Supabase credentials.
-   Never share your service_role key — only use the anon key here.
-========================== */
-const SUPABASE_URL = "https://mowcugidiqjvccvdennk.supabase.co";
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vd2N1Z2lkaXFqdmNjdmRlbm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NzUzOTgsImV4cCI6MjA5ODI1MTM5OH0.K-5I9OH8ATDNMLmMeLKZbnEQ_8VlSeYVqEqgSy8XcTk';
+(function () {
+  'use strict';
 
-/* ============================================================
-   Initialise and export the client.
-   Every other JS file imports `window._supabase` from here.
-============================================================ */
-const { createClient } = supabase;
-window._supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  /* ----------------------------------------------------------
+     CONFIGURATION
+     Replace these with your real Supabase project values.
+     Find them in: Supabase Dashboard → Settings → API
+  ---------------------------------------------------------- */
+  const SUPABASE_URL      = 'https://mowcugidiqjvccvdennk.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vd2N1Z2lkaXFqdmNjdmRlbm5rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NzUzOTgsImV4cCI6MjA5ODI1MTM5OH0.K-5I9OH8ATDNMLmMeLKZbnEQ_8VlSeYVqEqgSy8XcTk';
+
+  if (!SUPABASE_URL || SUPABASE_URL.includes('YOUR_PROJECT')) {
+    console.error('JARA: Supabase URL is not configured. ' +
+      'Edit js/supabase-client.js and set your project URL and anon key.');
+  }
+
+  /* ----------------------------------------------------------
+     INITIALISE CLIENT
+  ---------------------------------------------------------- */
+  window._supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession:    true,
+      autoRefreshToken:  true,
+      detectSessionInUrl: true,
+    },
+  });
+
+})();
