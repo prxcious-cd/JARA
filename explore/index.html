@@ -227,15 +227,15 @@
 ...
 </nav>
 
+<script src="../js/supabase-client.js"></script>
 <script src="../js/auth-guard.js"></script>
 <script src="../js/jara-profile.js"></script>
-<script src="../js/store.js"></script>
-
+<script src="../js/explore.js"></script>
 <script>
-JARAAuth.requireAuth().then(({ user, profile }) => {
-    window.__JARA_USER = user;
+  JARAAuth.requireAuth().then(({ user, profile }) => {
+    window.__JARA_USER    = user;
     window.__JARA_PROFILE = profile;
-});
+  });
 </script>
 
 </body>
