@@ -1,1124 +1,841 @@
 /* ============================================================
-   JARA ∆ — Search Page Logic
+   JARA ∆ — Search & Filter Engine  (v1)
    js/search.js
 
+   Connects the existing search UI to Supabase.
+   Replaces all placeholder/demo search results with
+   real data from the listings table.
+
    Depends on:
-     - window._supabase  (js/supabase-client.js)
-     - DOM in search/index.html
+     - window._supabase    (supabase-client.js)
+     - window.JARAAuth     (auth-guard.js)
+     - window.JARAProfile  (jara-profile.js)
+     - window.JARAListings (jara-listings.js)
 
    TABLE OF CONTENTS
    1.  State
-   2.  Placeholder data — swap for Supabase queries later
-   3.  DOM references
-   4.  Panel manager — show one panel at a time
-   5.  Recent searches — localStorage
-   6.  Popular searches
-   7.  Category grid
-   8.  Search bar — focus, clear, input handling
-   9.  Live suggestions — as user types
-   10. Full search — keyword match engine
-   11. Filter chips
-   12. Price filter modal
-   13. Render helpers
-   14. Results rendering — grouped by type
-   15. Empty state
-   16. URL parameter handling (from Explore links)
-   17. Init
+   2.  DOM refs
+   3.  Debounce helper
+   4.  Build Supabase query
+   5.  Execute search
+   6.  Render results
+   7.  Result card builder
+   8.  Loading state
+   9.  Empty state
+   10. Error state
+   11. Filter listeners
+   12. Search input listener
+   13. Clear filters
+   14. URL sync (persist state across page loads)
+   15. Init
 ============================================================ */
 
-document.addEventListener('DOMContentLoaded', () => {
-
+document.addEventListener('DOMContentLoaded', async () => {
 
   /* ==========================================================
      1. STATE
+     Single source of truth for every active filter value.
+     Every search re-reads from here.
   ========================================================== */
-  const state = {
-    query:       '',
-    activeFilter:'all',
-    priceMin:    null,
-    priceMax:    null,
-    results:     [],      // Full unfiltered result set
-    debounceTimer: null,
+
+  const S = {
+    query:        '',
+    type:         null,     // 'product' | 'service' | 'request' | null
+    category:     null,
+    school:       null,
+    condition:    null,     // 'new' | 'used' | null
+    priceMin:     null,
+    priceMax:     null,
+    sortBy:       'created_at',   // 'created_at' | 'price'
+    sortAsc:      false,          // false = newest / highest price first
+    limit:        20,
+    offset:       0,
+    total:        0,
+    loading:      false,
+    hasSearched:  false,
   };
 
-  // How long to wait after typing stops before running search (ms)
-  const DEBOUNCE_MS = 280;
 
-  // LocalStorage key for recent searches
-  const RECENT_KEY = 'jara_recent_searches';
+  /* ==========================================================
+     2. DOM REFS
+     Match IDs/classes already in search/index.html.
+     All names are read-only — nothing is renamed or moved.
+  ========================================================== */
 
-  // Max recent searches to store
-  const MAX_RECENT = 8;
+  const searchInput     = document.getElementById('searchInput')     ||
+                          document.getElementById('mainSearchInput') ||
+                          document.querySelector('[data-search-input]');
+
+  const resultsGrid     = document.getElementById('searchResults')   ||
+                          document.getElementById('resultsGrid')     ||
+                          document.querySelector('[data-results-grid]');
+
+  const resultsCount    = document.getElementById('searchCount')     ||
+                          document.getElementById('resultsCount')    ||
+                          document.querySelector('[data-results-count]');
+
+  const loadingSpinner  = document.getElementById('searchSpinner')   ||
+                          document.querySelector('[data-search-spinner]');
+
+  const loadMoreBtn     = document.getElementById('loadMoreBtn');
+  const loadMoreWrap    = document.getElementById('loadMoreWrap');
+  const clearFiltersBtn = document.getElementById('clearFiltersBtn') ||
+                          document.querySelector('[data-clear-filters]');
+
+  // Type filter chips / buttons
+  const typeChips       = document.querySelectorAll('[data-type]');
+
+  // Category select / chips
+  const categorySelect  = document.getElementById('filterCategory');
+  const categoryChips   = document.querySelectorAll('[data-category]');
+
+  // School filter
+  const schoolSelect    = document.getElementById('filterSchool')    ||
+                          document.querySelector('[name="filterSchool"]');
+
+  // Sort select
+  const sortSelect      = document.getElementById('filterSort')      ||
+                          document.querySelector('[name="filterSort"]');
+
+  // Condition chips / radio
+  const conditionChips  = document.querySelectorAll('[data-condition]');
+
+  // Price range inputs
+  const priceMinInput   = document.getElementById('priceMin')        ||
+                          document.querySelector('[name="priceMin"]');
+  const priceMaxInput   = document.getElementById('priceMax')        ||
+                          document.querySelector('[name="priceMax"]');
+
+  // Filter panel toggle (mobile)
+  const filterToggleBtn = document.getElementById('filterToggleBtn') ||
+                          document.querySelector('[data-filter-toggle]');
+  const filterPanel     = document.getElementById('filterPanel')     ||
+                          document.querySelector('[data-filter-panel]');
 
 
   /* ==========================================================
-     2. PLACEHOLDER DATA
-     -------------------------------------------------------
-     FUTURE INTEGRATION POINT:
-     Replace each array below with a Supabase query.
-     The search engine (Section 10) only needs the arrays
-     to have the same shape — it does not care where they
-     come from.
-
-     Example replacement for PRODUCTS:
-       const { data: PRODUCTS } = await window._supabase
-         .from('products')
-         .select('id, title, description, price, images,
-                  category_id, owner_id, status, tags,
-                  location, is_verified_by_jara, jara_pro_boost')
-         .eq('status', 'active');
-
-     Do the same for SERVICES, REQUESTS, BUSINESSES.
-     -------------------------------------------------------
+     3. DEBOUNCE HELPER
+     Prevents a Supabase query firing on every keystroke.
+     300ms delay — feels instant but avoids thrashing.
   ========================================================== */
 
-  const PRODUCTS = [
-    {
-      id: 'p1', type: 'product',
-      title: 'Honda Generator — 2.5KVA for Rent',
-      description: 'Reliable Honda generator available for nightly rental. Perfect for hostel use during NEPA outages.',
-      category: 'Power & Generator',
-      price: 2500, priceLabel: '₦2,500/night',
-      image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=200&fit=crop',
-      seller: { name: 'Emeka J.', initials: 'EJ', avatar: null },
-      distance: '0.3 km',
-      verified: true, pro: false,
-      tags: ['generator', 'power', 'electricity', 'hostel', 'rental'],
-    },
-    {
-      id: 'p2', type: 'product',
-      title: 'Fairly Used Economics Textbooks — 200L',
-      description: 'Principles of Economics, Micro & Macro. Good condition. Used for one semester only.',
-      category: 'Books & Stationery',
-      price: 4500, priceLabel: '₦4,500',
-      image: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=200&h=200&fit=crop',
-      seller: { name: 'Adaeze O.', initials: 'AO', avatar: null },
-      distance: '0.2 km',
-      verified: false, pro: false,
-      tags: ['books', 'textbook', 'economics', 'study', 'secondhand'],
-    },
-    {
-      id: 'p3', type: 'product',
-      title: 'iPhone 12 — Fairly Used, Excellent Condition',
-      description: '128GB, no fault, battery health 88%. Comes with charger and original box.',
-      category: 'Tech & Repairs',
-      price: 145000, priceLabel: '₦145,000',
-      image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=200&h=200&fit=crop',
-      seller: { name: 'Hassan B.', initials: 'HB', avatar: null },
-      distance: '0.9 km',
-      verified: true, pro: false,
-      tags: ['phone', 'iphone', 'smartphone', 'fairly used', 'tech'],
-    },
-    {
-      id: 'p4', type: 'product',
-      title: "Women's Shoes — Size 38 to 42",
-      description: 'Various styles available. New arrivals weekly. Pay on delivery within campus.',
-      category: 'Fashion & Clothing',
-      price: 7500, priceLabel: '₦7,500',
-      image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=200&h=200&fit=crop',
-      seller: { name: 'Ngozi A.', initials: 'NA', avatar: null },
-      distance: '1.2 km',
-      verified: false, pro: false,
-      tags: ['shoes', 'fashion', 'footwear', 'women'],
-    },
-    {
-      id: 'p5', type: 'product',
-      title: 'Jollof Rice & Chicken — Daily Orders',
-      description: 'Hot homemade jollof rice with chicken. Order before 12pm for afternoon delivery.',
-      category: 'Food & Drinks',
-      price: 1200, priceLabel: '₦1,200',
-      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop',
-      seller: { name: 'Mama Grace', initials: 'MG', avatar: null },
-      distance: '0.4 km',
-      verified: true, pro: false,
-      tags: ['food', 'rice', 'jollof', 'chicken', 'meal', 'delivery'],
-    },
-    {
-      id: 'p6', type: 'product',
-      title: 'Custom Birthday Cakes — Order 24hrs Ahead',
-      description: 'Beautiful custom cakes for every occasion. All flavours. Delivery within campus.',
-      category: 'Food & Drinks',
-      price: 8000, priceLabel: 'From ₦8,000',
-      image: 'https://images.unsplash.com/photo-1481833761820-0509d3217039?w=200&h=200&fit=crop',
-      seller: { name: 'Blessing A.', initials: 'BA', avatar: null },
-      distance: '0.6 km',
-      verified: true, pro: true,
-      tags: ['cake', 'birthday', 'pastry', 'custom', 'food'],
-    },
-  ];
-
-  const SERVICES = [
-    {
-      id: 's1', type: 'service',
-      title: 'Laptop Repairs — Fast Turnaround',
-      description: 'Screen replacement, battery, keyboard, motherboard issues. 24hr turnaround on most jobs.',
-      category: 'Tech & Repairs',
-      price: 3000, priceLabel: 'From ₦3,000',
-      image: 'https://images.unsplash.com/photo-1524578271613-d550eacf6090?w=200&h=200&fit=crop',
-      seller: { name: 'Chukwudi T.', initials: 'CT', avatar: null },
-      distance: '1.1 km',
-      verified: false, pro: false,
-      tags: ['laptop', 'repair', 'tech', 'computer', 'fix'],
-    },
-    {
-      id: 's2', type: 'service',
-      title: 'Graphic Design — Flyers, Logos, Banners',
-      description: 'Professional graphic design for student events, businesses and personal projects.',
-      category: 'Creative Services',
-      price: 2000, priceLabel: 'From ₦2,000',
-      image: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=200&h=200&fit=crop',
-      seller: { name: 'Zainab M.', initials: 'ZM', avatar: null },
-      distance: '0.8 km',
-      verified: true, pro: true,
-      tags: ['design', 'graphic', 'logo', 'flyer', 'creative'],
-    },
-    {
-      id: 's3', type: 'service',
-      title: 'Hostel Room Cleaning — Weekly Plans',
-      description: 'Deep cleaning, mopping, bed making. Book weekly for a discount.',
-      category: 'Laundry & Errands',
-      price: 1500, priceLabel: '₦1,500/session',
-      image: 'https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?w=200&h=200&fit=crop',
-      seller: { name: 'Kemi F.', initials: 'KF', avatar: null },
-      distance: '0.5 km',
-      verified: true, pro: false,
-      tags: ['cleaning', 'laundry', 'hostel', 'room', 'errand'],
-    },
-    {
-      id: 's4', type: 'service',
-      title: 'Assignment Printing & Binding',
-      description: 'Fast printing, colour and black & white. Spiral and hard binding available.',
-      category: 'Printing & Typing',
-      price: 200, priceLabel: '₦200/page',
-      image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=200&fit=crop',
-      seller: { name: 'David K.', initials: 'DK', avatar: null },
-      distance: '0.3 km',
-      verified: false, pro: false,
-      tags: ['printing', 'print', 'assignment', 'typing', 'binding'],
-    },
-    {
-      id: 's5', type: 'service',
-      title: 'Professional Photography — Events & Portraits',
-      description: 'Graduation photos, event coverage, passport photos. Same-day editing available.',
-      category: 'Photography',
-      price: 5000, priceLabel: 'From ₦5,000',
-      image: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=200&h=200&fit=crop',
-      seller: { name: 'Tunde E.', initials: 'TE', avatar: null },
-      distance: '1.4 km',
-      verified: true, pro: true,
-      tags: ['photo', 'photography', 'portrait', 'event', 'camera'],
-    },
-    {
-      id: 's6', type: 'service',
-      title: 'GST Tutoring — All Courses',
-      description: 'Help with GST 101, 102, 201 and university-wide general studies. Flexible sessions.',
-      category: 'Tutoring',
-      price: 2000, priceLabel: '₦2,000/hr',
-      image: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=200&h=200&fit=crop',
-      seller: { name: 'Fatima K.', initials: 'FK', avatar: null },
-      distance: '0.7 km',
-      verified: false, pro: false,
-      tags: ['tutor', 'gst', 'study', 'lesson', 'academics', 'teacher'],
-    },
-    {
-      id: 's7', type: 'service',
-      title: 'Laundry Pickup & Delivery — 2 Day Turnaround',
-      description: 'Collect, wash, iron and deliver to your hostel. Per-bag pricing.',
-      category: 'Laundry & Errands',
-      price: 1000, priceLabel: 'From ₦1,000/bag',
-      image: 'https://images.unsplash.com/photo-1604335399105-a0c585fd81a1?w=200&h=200&fit=crop',
-      seller: { name: 'Chisom A.', initials: 'CA', avatar: null },
-      distance: '0.6 km',
-      verified: false, pro: false,
-      tags: ['laundry', 'washing', 'ironing', 'delivery', 'clothes'],
-    },
-    {
-      id: 's8', type: 'service',
-      title: 'Haircut & Styling — Home Service',
-      description: 'Fades, waves, dreads and styling. I come to you on campus.',
-      category: 'Personal Care',
-      price: 1500, priceLabel: 'From ₦1,500',
-      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop',
-      seller: { name: 'Solomon P.', initials: 'SP', avatar: null },
-      distance: '0.9 km',
-      verified: false, pro: false,
-      tags: ['haircut', 'barber', 'hair', 'styling', 'fade', 'grooming'],
-    },
-  ];
-
-  const REQUESTS = [
-    {
-      id: 'rq1', type: 'request',
-      title: 'Need a generator tonight — Block B2',
-      description: 'NEPA has been out since yesterday. Need rental for just one night.',
-      category: 'Power & Generator',
-      price: 2000, priceLabel: 'Budget: ₦2,000',
-      image: null,
-      seller: { name: 'Anonymous', initials: 'AN', avatar: null },
-      distance: '0.2 km',
-      verified: false, pro: false,
-      tags: ['generator', 'power', 'urgent', 'hostel'],
-    },
-    {
-      id: 'rq2', type: 'request',
-      title: 'Assignment typing needed — 5 pages, due tomorrow',
-      description: 'I have the handwritten draft. Need it typed and formatted in APA. WhatsApp me.',
-      category: 'Printing & Typing',
-      price: null, priceLabel: 'Negotiable',
-      image: null,
-      seller: { name: 'Anonymous', initials: 'AN', avatar: null },
-      distance: '0.5 km',
-      verified: false, pro: false,
-      tags: ['typing', 'assignment', 'urgent', 'printing'],
-    },
-    {
-      id: 'rq3', type: 'request',
-      title: 'Looking for a birthday cake — tomorrow 2pm',
-      description: 'Need a custom cake for my friend\'s surprise. Chocolate flavour. About 2kg.',
-      category: 'Food & Drinks',
-      price: 10000, priceLabel: 'Budget: ₦10,000',
-      image: null,
-      seller: { name: 'Anonymous', initials: 'AN', avatar: null },
-      distance: '0.7 km',
-      verified: false, pro: false,
-      tags: ['cake', 'birthday', 'custom', 'food'],
-    },
-    {
-      id: 'rq4', type: 'request',
-      title: 'Need a GST tutor this week',
-      description: 'Struggling with GST 101. Looking for private lessons, 2 sessions.',
-      category: 'Tutoring',
-      price: null, priceLabel: 'Negotiable',
-      image: null,
-      seller: { name: 'Anonymous', initials: 'AN', avatar: null },
-      distance: '1.0 km',
-      verified: false, pro: false,
-      tags: ['tutor', 'gst', 'academics', 'lesson'],
-    },
-  ];
-
-  const BUSINESSES = [
-    {
-      id: 'b1', type: 'business',
-      title: "Blessing's Kitchen",
-      description: 'Homemade meals, pastries and custom cakes. Order daily before 12pm.',
-      category: 'Food & Drinks',
-      price: null, priceLabel: 'See menu',
-      image: 'https://images.unsplash.com/photo-1481833761820-0509d3217039?w=200&h=200&fit=crop',
-      seller: { name: 'Blessing A.', initials: 'BA', avatar: null },
-      distance: '0.6 km',
-      verified: true, pro: true,
-      tags: ['food', 'cake', 'meal', 'restaurant', 'kitchen'],
-    },
-    {
-      id: 'b2', type: 'business',
-      title: 'ZM Creative Studio',
-      description: 'Full-service design and photography studio for students and campus businesses.',
-      category: 'Creative Services',
-      price: null, priceLabel: 'Get a quote',
-      image: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=200&h=200&fit=crop',
-      seller: { name: 'Zainab M.', initials: 'ZM', avatar: null },
-      distance: '0.8 km',
-      verified: true, pro: true,
-      tags: ['design', 'studio', 'photography', 'creative', 'business'],
-    },
-  ];
-
-  // All data merged for cross-type search
-  // -------------------------------------------------------
-  // FUTURE: replace with a single Supabase RPC call to the
-  // search_listings() function defined in 003_functions.sql
-  // -------------------------------------------------------
-  const ALL_LISTINGS = [...PRODUCTS, ...SERVICES, ...REQUESTS, ...BUSINESSES];
-
-  // Suggestion keywords for live type-ahead
-  const SUGGESTION_TERMS = [
-    { term: 'Generator',        sub: 'Power & Generator',   icon: '⚡' },
-    { term: 'Generator Repair', sub: 'Tech & Repairs',      icon: '🔧' },
-    { term: 'Generator Rental', sub: 'Power & Generator',   icon: '⚡' },
-    { term: 'Laptop Repair',    sub: 'Tech & Repairs',      icon: '💻' },
-    { term: 'Laundry',          sub: 'Laundry & Errands',   icon: '🧺' },
-    { term: 'Laundry Pickup',   sub: 'Laundry & Errands',   icon: '🧺' },
-    { term: 'Printing',         sub: 'Printing & Typing',   icon: '🖨️' },
-    { term: 'Assignment Typing',sub: 'Printing & Typing',   icon: '⌨️' },
-    { term: 'Tutor',            sub: 'Tutoring',            icon: '🎓' },
-    { term: 'GST Tutor',        sub: 'Tutoring',            icon: '📚' },
-    { term: 'Maths Tutor',      sub: 'Tutoring',            icon: '🔢' },
-    { term: 'Haircut',          sub: 'Personal Care',       icon: '✂️' },
-    { term: 'Hair Stylist',     sub: 'Personal Care',       icon: '💇' },
-    { term: 'Food',             sub: 'Food & Drinks',       icon: '🍛' },
-    { term: 'Jollof Rice',      sub: 'Food & Drinks',       icon: '🍚' },
-    { term: 'Cake',             sub: 'Food & Drinks',       icon: '🎂' },
-    { term: 'Birthday Cake',    sub: 'Food & Drinks',       icon: '🧁' },
-    { term: 'Books',            sub: 'Books & Stationery',  icon: '📚' },
-    { term: 'Textbooks',        sub: 'Books & Stationery',  icon: '📖' },
-    { term: 'Photography',      sub: 'Photography',         icon: '📸' },
-    { term: 'Graphic Design',   sub: 'Creative Services',   icon: '🎨' },
-    { term: 'Room Cleaning',    sub: 'Laundry & Errands',   icon: '🏠' },
-    { term: 'Phone Repair',     sub: 'Tech & Repairs',      icon: '📱' },
-    { term: 'Shoes',            sub: 'Fashion & Clothing',  icon: '👟' },
-    { term: 'Delivery',         sub: 'Logistics & Delivery',icon: '🚚' },
-  ];
-
-  const POPULAR_SEARCHES = [
-    'Generator', 'Laptop Repair', 'Cake', 'Haircut',
-    'Laundry', 'Food', 'Books', 'Printing', 'Tutor', 'Design',
-  ];
-
-  const CATEGORIES = [
-    { emoji: '⚡', name: 'Power & Generator',  filter: 'generator' },
-    { emoji: '📚', name: 'Books & Stationery', filter: 'books' },
-    { emoji: '💻', name: 'Tech & Repairs',     filter: 'tech' },
-    { emoji: '🍛', name: 'Food & Drinks',      filter: 'food' },
-    { emoji: '✂️', name: 'Personal Care',      filter: 'haircut' },
-    { emoji: '🎨', name: 'Creative Services',  filter: 'design' },
-    { emoji: '🧺', name: 'Laundry & Errands',  filter: 'laundry' },
-    { emoji: '🖨️', name: 'Printing & Typing', filter: 'printing' },
-    { emoji: '🎓', name: 'Tutoring',           filter: 'tutor' },
-    { emoji: '📸', name: 'Photography',        filter: 'photography' },
-    { emoji: '👗', name: 'Fashion',            filter: 'fashion' },
-    { emoji: '🚚', name: 'Delivery',           filter: 'delivery' },
-  ];
-
-
-  /* ==========================================================
-     3. DOM REFERENCES
-  ========================================================== */
-  const searchInput      = document.getElementById('searchInput');
-  const clearBtn         = document.getElementById('clearBtn');
-  const srFilters        = document.getElementById('srFilters');
-  const srDefault        = document.getElementById('srDefault');
-  const srResults        = document.getElementById('srResults');
-  const srEmpty          = document.getElementById('srEmpty');
-  const srResultsBody    = document.getElementById('srResultsBody');
-  const srCount          = document.getElementById('srCount');
-  const srQuery          = document.getElementById('srQuery');
-  const emptyQuery       = document.getElementById('emptyQuery');
-  const srSuggestions    = document.getElementById('srSuggestions');
-  const recentChips      = document.getElementById('recentChips');
-  const popularChips     = document.getElementById('popularChips');
-  const categoryGrid     = document.getElementById('categoryGrid');
-  const clearRecentBtn   = document.getElementById('clearRecent');
-  const priceFilterBtn   = document.getElementById('priceFilter');
-  const priceModal       = document.getElementById('priceModal');
-  const priceModalBg     = document.getElementById('priceModalBackdrop');
-  const priceMinInput    = document.getElementById('priceMin');
-  const priceMaxInput    = document.getElementById('priceMax');
-  const priceApplyBtn    = document.getElementById('priceApply');
-  const priceClearBtn    = document.getElementById('priceClear');
-  const filterChips      = document.querySelectorAll('.filter-chip');
-
-
-  /* ==========================================================
-     4. PANEL MANAGER
-     Only one of the three panels is shown at a time.
-  ========================================================== */
-
-  function showPanel(name) {
-    srDefault.setAttribute('hidden', '');
-    srResults.setAttribute('hidden', '');
-    srEmpty.setAttribute('hidden', '');
-    srSuggestions.setAttribute('hidden', '');
-
-    if (name === 'default')   srDefault.removeAttribute('hidden');
-    if (name === 'results')   srResults.removeAttribute('hidden');
-    if (name === 'empty')     srEmpty.removeAttribute('hidden');
+  function debounce(fn, delay) {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
   }
 
+  const debouncedSearch = debounce(() => runSearch(true), 300);
+
 
   /* ==========================================================
-     5. RECENT SEARCHES — localStorage
+     4. BUILD SUPABASE QUERY
+     Constructs the full query from current state S.
+     Structured so Phase 3's JARAListings.fetch() is reused
+     where possible, then extended with search-specific params.
   ========================================================== */
 
-  function getRecent() {
+  async function buildAndRunQuery() {
+    const sb = window._supabase;
+    if (!sb) return { data: [], count: 0, error: new Error('Supabase not ready') };
+
     try {
-      return JSON.parse(localStorage.getItem(RECENT_KEY)) || [];
-    } catch {
-      return [];
+      /*
+       Base select — reuses the same column set as jara-listings.js
+       so cards render identically to explore/store pages.
+      */
+      let query = sb
+        .from('listings')
+        .select(`
+          id,
+          owner_id,
+          title,
+          description,
+          category,
+          listing_type,
+          price,
+          negotiable,
+          condition,
+          location,
+          status,
+          images,
+          view_count,
+          created_at,
+          updated_at,
+          profiles (
+            id,
+            full_name,
+            username,
+            business_name,
+            avatar_url,
+            account_type,
+            school,
+            is_verified,
+            is_founding_member,
+            is_premium,
+            pro_status
+          )
+        `, { count: 'exact' });
+
+      /* ── Status: only show active, approved, visible listings ── */
+      query = query.eq('status', 'active');
+
+      /* ── Full-text / partial search ─────────────────────────────
+         Supabase ilike performs case-insensitive partial matching.
+         We search across title, description, and category.
+
+         FUTURE: Replace with full-text search using a tsvector
+         search_vector column for better relevance ranking:
+           query = query.textSearch('search_vector', S.query, {
+             type: 'websearch',
+             config: 'english',
+           });
+      */
+      if (S.query && S.query.trim().length > 0) {
+        const term = S.query.trim();
+        query = query.or(
+          `title.ilike.%${term}%,description.ilike.%${term}%,category.ilike.%${term}%`
+        );
+      }
+
+      /* ── Type filter ──────────────────────────────────────────── */
+      if (S.type) {
+        query = query.eq('listing_type', S.type);
+      }
+
+      /* ── Category filter ─────────────────────────────────────── */
+      if (S.category) {
+        query = query.ilike('category', S.category);
+      }
+
+      /* ── Condition filter ────────────────────────────────────── */
+      if (S.condition) {
+        query = query.eq('condition', S.condition);
+      }
+
+      /* ── Price range ─────────────────────────────────────────── */
+      if (S.priceMin !== null && S.priceMin !== '') {
+        query = query.gte('price', Number(S.priceMin));
+      }
+      if (S.priceMax !== null && S.priceMax !== '') {
+        query = query.lte('price', Number(S.priceMax));
+      }
+
+      /* ── School filter ───────────────────────────────────────────
+         School is on the profiles table — we filter in JS after
+         fetching since Supabase JS v2 doesn't support filtering on
+         joined tables directly in .select().
+
+         FUTURE: Use an RPC or a view that joins listings + profiles
+         and filter by school on the server:
+           query = query.eq('profiles.school', S.school);
+      */
+
+      /* ── Sort ───────────────────────────────────────────────── */
+      query = query.order(S.sortBy, { ascending: S.sortAsc });
+
+      /* ── Pagination ──────────────────────────────────────────── */
+      query = query.range(S.offset, S.offset + S.limit - 1);
+
+      /* ── Execute ─────────────────────────────────────────────── */
+      const { data, count, error } = await query;
+
+      if (error) {
+        console.error('JARASearch: query error:', error.message);
+        return { data: [], count: 0, error };
+      }
+
+      /* ── Post-fetch school filter (JS-side) ─────────────────── */
+      let results = data || [];
+      if (S.school) {
+        results = results.filter(
+          l => l.profiles?.school?.toLowerCase() === S.school.toLowerCase()
+        );
+      }
+
+      return { data: results, count: count || 0, error: null };
+
+    } catch (err) {
+      console.error('JARASearch: buildAndRunQuery unexpected error:', err.message);
+      return { data: [], count: 0, error: err };
     }
   }
 
-  function saveRecent(term) {
-    let recent = getRecent().filter(t => t.toLowerCase() !== term.toLowerCase());
-    recent.unshift(term);
-    if (recent.length > MAX_RECENT) recent = recent.slice(0, MAX_RECENT);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
-  }
-
-  function removeRecent(term) {
-    const updated = getRecent().filter(t => t !== term);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(updated));
-    renderRecentChips();
-  }
-
-  function clearAllRecent() {
-    localStorage.removeItem(RECENT_KEY);
-    renderRecentChips();
-  }
-
-  function renderRecentChips() {
-    const recent = getRecent();
-    recentChips.innerHTML = '';
-
-    if (recent.length === 0) {
-      recentChips.innerHTML = `<span class="chip-list--empty">No recent searches yet.</span>`;
-      return;
-    }
-
-    recent.forEach(term => {
-      const chip = document.createElement('span');
-      chip.className = 'search-chip';
-      chip.innerHTML = `
-        <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
-        ${escapeHTML(term)}
-        <button class="search-chip__remove" aria-label="Remove ${escapeHTML(term)}">
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-      `;
-
-      // Click on chip text → search
-      chip.addEventListener('click', (e) => {
-        if (e.target.closest('.search-chip__remove')) return;
-        triggerSearch(term);
-      });
-
-      // Click × → remove
-      chip.querySelector('.search-chip__remove').addEventListener('click', (e) => {
-        e.stopPropagation();
-        removeRecent(term);
-      });
-
-      recentChips.appendChild(chip);
-    });
-  }
-
-  clearRecentBtn.addEventListener('click', clearAllRecent);
-
 
   /* ==========================================================
-     6. POPULAR SEARCHES
+     5. EXECUTE SEARCH
+     reset = true  → clear results, start from page 1
+     reset = false → append next page (load more)
   ========================================================== */
 
-  function renderPopularChips() {
-    popularChips.innerHTML = '';
-    POPULAR_SEARCHES.forEach(term => {
-      const chip = document.createElement('button');
-      chip.type      = 'button';
-      chip.className = 'search-chip';
-      chip.innerHTML = `
-        <i class="fa-solid fa-fire" aria-hidden="true"></i>
-        ${escapeHTML(term)}
-      `;
-      chip.addEventListener('click', () => triggerSearch(term));
-      popularChips.appendChild(chip);
-    });
-  }
+  async function runSearch(reset = true) {
+    if (S.loading) return;
+    S.loading     = true;
+    S.hasSearched = true;
 
-
-  /* ==========================================================
-     7. CATEGORY GRID
-  ========================================================== */
-
-  function renderCategories() {
-    categoryGrid.innerHTML = '';
-    CATEGORIES.forEach(cat => {
-      const tile = document.createElement('button');
-      tile.type      = 'button';
-      tile.className = 'category-tile';
-      tile.innerHTML = `
-        <span class="category-tile__emoji" aria-hidden="true">${cat.emoji}</span>
-        <span class="category-tile__name">${cat.name}</span>
-      `;
-      tile.addEventListener('click', () => triggerSearch(cat.name));
-      categoryGrid.appendChild(tile);
-    });
-  }
-
-
-  /* ==========================================================
-     8. SEARCH BAR — FOCUS, CLEAR, INPUT
-  ========================================================== */
-
-  // Auto-focus on page load
-  searchInput.focus();
-
-  searchInput.addEventListener('input', () => {
-    const val = searchInput.value.trim();
-    state.query = val;
-
-    // Show / hide clear button
-    if (val.length > 0) {
-      clearBtn.removeAttribute('hidden');
+    if (reset) {
+      S.offset = 0;
+      showLoading(true);
+      if (resultsGrid) resultsGrid.innerHTML = '';
     } else {
-      clearBtn.setAttribute('hidden', '');
-    }
-
-    // Debounce — wait before running search
-    clearTimeout(state.debounceTimer);
-
-    if (val.length === 0) {
-      // Back to default view
-      showPanel('default');
-      srFilters.setAttribute('hidden', '');
-      return;
-    }
-
-    // Show live suggestions immediately
-    renderSuggestions(val);
-    srSuggestions.removeAttribute('hidden');
-
-    // Debounced full search
-    state.debounceTimer = setTimeout(() => {
-      runSearch(val);
-    }, DEBOUNCE_MS);
-  });
-
-  clearBtn.addEventListener('click', () => {
-    searchInput.value = '';
-    state.query       = '';
-    clearBtn.setAttribute('hidden', '');
-    srSuggestions.setAttribute('hidden', '');
-    srFilters.setAttribute('hidden', '');
-    showPanel('default');
-    searchInput.focus();
-  });
-
-  // Also search on Enter
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const val = searchInput.value.trim();
-      if (val) runSearch(val);
-    }
-  });
-
-
-  /* ==========================================================
-     9. LIVE SUGGESTIONS — type-ahead as user types
-  ========================================================== */
-
-  function renderSuggestions(query) {
-    const q       = query.toLowerCase();
-    const matches = SUGGESTION_TERMS.filter(s =>
-      s.term.toLowerCase().includes(q)
-    ).slice(0, 6);
-
-    srSuggestions.innerHTML = '';
-
-    if (matches.length === 0) {
-      srSuggestions.setAttribute('hidden', '');
-      return;
-    }
-
-    matches.forEach(match => {
-      const item = document.createElement('div');
-      item.className = 'suggestion-item';
-      item.setAttribute('role', 'option');
-      item.tabIndex  = 0;
-
-      // Highlight matching portion of the term
-      const highlighted = highlightMatch(match.term, query);
-
-      item.innerHTML = `
-        <div class="suggestion-item__icon" aria-hidden="true">${match.icon}</div>
-        <div class="suggestion-item__text">
-          <div class="suggestion-item__title">${highlighted}</div>
-          <div class="suggestion-item__sub">${match.sub}</div>
-        </div>
-        <i class="fa-solid fa-arrow-up-left suggestion-item__arrow" aria-hidden="true"></i>
-      `;
-
-      item.addEventListener('click', () => {
-        triggerSearch(match.term);
-      });
-
-      // Keyboard: Enter on suggestion
-      item.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') triggerSearch(match.term);
-      });
-
-      srSuggestions.appendChild(item);
-    });
-
-    srSuggestions.removeAttribute('hidden');
-  }
-
-
-  /* ==========================================================
-     10. FULL SEARCH — KEYWORD MATCH ENGINE
-     -------------------------------------------------------
-     FUTURE AI INTEGRATION POINT:
-     Replace the `matchesQuery()` function below with a call to
-     a Supabase Edge Function that runs an AI/semantic search.
-     The rest of this function (grouping, filtering, rendering)
-     stays exactly the same.
-
-     Example future replacement:
-       const { data } = await window._supabase.rpc('search_listings', {
-         search_term: query,
-         school_uuid: currentUserSchoolId,
-       });
-       state.results = data;
-     -------------------------------------------------------
-  ========================================================== */
-
-  function runSearch(query) {
-    srSuggestions.setAttribute('hidden', '');
-
-    const q = query.toLowerCase().trim();
-
-    // Save to recent searches
-    saveRecent(query);
-
-    // Filter all listings
-    state.results = ALL_LISTINGS.filter(item => matchesQuery(item, q));
-
-    // Apply type filter
-    const filtered = applyFilters(state.results);
-
-    // Show filters
-    srFilters.removeAttribute('hidden');
-
-    // Update results summary
-    srQuery.textContent = `"${query}"`;
-    srCount.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''} for`;
-
-    if (filtered.length === 0) {
-      emptyQuery.textContent = `"${query}"`;
-      showPanel('empty');
-      return;
-    }
-
-    renderResults(filtered);
-    showPanel('results');
-  }
-
-  /** Returns true if a listing matches the search query */
-  function matchesQuery(item, q) {
-    // Check title, description, category, tags, seller name
-    const searchable = [
-      item.title,
-      item.description,
-      item.category,
-      item.seller?.name,
-      ...(item.tags || []),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-
-    return searchable.includes(q);
-  }
-
-  /** Apply active type filter and price filter */
-  function applyFilters(results) {
-    let filtered = [...results];
-
-    // Type filter
-    if (state.activeFilter !== 'all') {
-      if (state.activeFilter === 'nearby') {
-        // Sort by distance — for now, just show all (GPS not available on placeholder)
-        // In production: filter by location_lat / location_lng proximity
-        filtered = filtered;
-      } else {
-        filtered = filtered.filter(item => item.type === state.activeFilter);
+      if (loadMoreBtn) {
+        loadMoreBtn.disabled    = true;
+        loadMoreBtn.textContent = 'Loading…';
       }
     }
 
-    // Price filter
-    if (state.priceMin !== null) {
-      filtered = filtered.filter(item =>
-        item.price !== null && item.price >= state.priceMin
-      );
-    }
-    if (state.priceMax !== null) {
-      filtered = filtered.filter(item =>
-        item.price !== null && item.price <= state.priceMax
-      );
-    }
+    syncUrlState();
 
-    return filtered;
-  }
+    try {
+      const { data, count, error } = await buildAndRunQuery();
 
-  /** Trigger a search from a chip or suggestion click */
-  function triggerSearch(term) {
-    searchInput.value = term;
-    state.query       = term;
-    clearBtn.removeAttribute('hidden');
-    srSuggestions.setAttribute('hidden', '');
-    runSearch(term);
-    searchInput.focus();
-  }
+      showLoading(false);
 
-
-  /* ==========================================================
-     11. FILTER CHIPS
-  ========================================================== */
-
-  filterChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      // Deselect all
-      filterChips.forEach(c => {
-        c.setAttribute('aria-pressed', 'false');
-        c.classList.remove('filter-chip--active');
-      });
-
-      // Select this
-      chip.setAttribute('aria-pressed', 'true');
-      chip.classList.add('filter-chip--active');
-      state.activeFilter = chip.dataset.filter;
-
-      // Re-apply filters to current results
-      if (state.query) {
-        const filtered = applyFilters(state.results);
-        srCount.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''} for`;
-
-        if (filtered.length === 0) {
-          emptyQuery.textContent = `"${state.query}"`;
-          showPanel('empty');
-          return;
-        }
-
-        renderResults(filtered);
-        showPanel('results');
+      if (loadMoreBtn) {
+        loadMoreBtn.disabled    = false;
+        loadMoreBtn.textContent = 'Load More';
       }
-    });
-  });
 
-
-  /* ==========================================================
-     12. PRICE FILTER MODAL
-  ========================================================== */
-
-  priceFilterBtn.addEventListener('click', () => {
-    priceModal.removeAttribute('hidden');
-    document.body.style.overflow = 'hidden';
-    priceMinInput.focus();
-  });
-
-  function closePriceModal() {
-    priceModal.setAttribute('hidden', '');
-    document.body.style.overflow = '';
-  }
-
-  priceModalBg.addEventListener('click', closePriceModal);
-
-  priceApplyBtn.addEventListener('click', () => {
-    state.priceMin = priceMinInput.value ? parseFloat(priceMinInput.value) : null;
-    state.priceMax = priceMaxInput.value ? parseFloat(priceMaxInput.value) : null;
-
-    // Update price chip label if filter active
-    if (state.priceMin !== null || state.priceMax !== null) {
-      priceFilterBtn.classList.add('filter-chip--active');
-      priceFilterBtn.setAttribute('aria-pressed', 'true');
-    }
-
-    closePriceModal();
-
-    // Re-run with price filter
-    if (state.query) {
-      const filtered = applyFilters(state.results);
-      if (filtered.length === 0) {
-        emptyQuery.textContent = `"${state.query}"`;
-        showPanel('empty');
+      if (error) {
+        showError();
+        S.loading = false;
         return;
       }
-      renderResults(filtered);
-      showPanel('results');
+
+      S.total   = count;
+      S.offset += data.length;
+
+      updateResultsCount(count);
+
+      if (data.length === 0 && reset) {
+        showEmpty();
+      } else {
+        renderResults(data);
+      }
+
+      // Show / hide load more
+      const hasMore = S.offset < S.total;
+      if (loadMoreWrap) loadMoreWrap.hidden = !hasMore;
+      if (loadMoreBtn)  loadMoreBtn.hidden  = !hasMore;
+
+    } catch (err) {
+      console.error('JARASearch: runSearch error:', err.message);
+      showLoading(false);
+      showError();
     }
-  });
 
-  priceClearBtn.addEventListener('click', () => {
-    state.priceMin     = null;
-    state.priceMax     = null;
-    priceMinInput.value = '';
-    priceMaxInput.value = '';
-    priceFilterBtn.classList.remove('filter-chip--active');
-    priceFilterBtn.setAttribute('aria-pressed', 'false');
-    document.querySelectorAll('.price-preset').forEach(p =>
-      p.classList.remove('price-preset--active')
-    );
-    closePriceModal();
-  });
-
-  // Price presets
-  document.querySelectorAll('.price-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.price-preset').forEach(p =>
-        p.classList.remove('price-preset--active')
-      );
-      btn.classList.add('price-preset--active');
-      priceMinInput.value = btn.dataset.min || '';
-      priceMaxInput.value = btn.dataset.max || '';
-    });
-  });
+    S.loading = false;
+  }
 
 
   /* ==========================================================
-     13. RENDER HELPERS
+     6. RENDER RESULTS
+     Appends result cards to the grid.
+     Reuses the same card builder pattern as explore.js
+     so cards look identical everywhere.
   ========================================================== */
 
-  function escapeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+  function renderResults(listings) {
+    if (!resultsGrid) return;
+
+    listings.forEach((listing, i) => {
+      const card = buildResultCard(listing);
+      card.style.animationDelay = `${i * 25}ms`;
+      resultsGrid.appendChild(card);
+    });
   }
 
-  /** Wraps matching text in a <mark> tag for visual highlight */
-  function highlightMatch(text, query) {
-    if (!query) return escapeHTML(text);
-    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex   = new RegExp(`(${escaped})`, 'gi');
-    return escapeHTML(text).replace(regex, '<mark>$1</mark>');
-  }
 
-  function buildBadge(type, cls, text, icon) {
-    return `<span class="badge badge--${cls}">
-      <i class="${icon}" aria-hidden="true"></i> ${text}
-    </span>`;
-  }
+  /* ==========================================================
+     7. RESULT CARD BUILDER
+     Matches the existing .listing-mini card structure
+     already in the HTML/CSS — no new classes introduced.
+  ========================================================== */
 
-  function buildResultCard(item, query) {
+  function buildResultCard(listing) {
+    const cover      = JARAListings.getCoverImage(listing);
+    const price      = JARAListings.formatPrice(listing);
+    const ago        = JARAListings.timeAgo(listing.created_at);
+    const sellerName = JARAListings.getSellerName(listing);
+    const seller     = listing.profiles || {};
+    const typeLabel  = listing.listing_type
+      ? listing.listing_type.charAt(0).toUpperCase() + listing.listing_type.slice(1)
+      : '';
+
     const card = document.createElement('a');
-    card.className = 'result-card';
-    card.href      = `../listing/index.html?id=${item.id}`;
-    card.setAttribute('aria-label', item.title);
-
-    const typeLabelMap  = { product: 'Product', service: 'Service', request: 'Request', business: 'Business' };
-    const typeBadgeMap  = { product: 'type', service: 'type-service', request: 'type-request', business: 'type-business' };
-    const typeLabel     = typeLabelMap[item.type] || 'Listing';
-    const typeCls       = typeBadgeMap[item.type]  || 'type';
-
-    const highlightedTitle = highlightMatch(item.title, query);
-
-    const avatarHTML = item.seller.avatar
-      ? `<span class="result-card__seller-avatar"><img src="${item.seller.avatar}" alt="${escapeHTML(item.seller.name)}" /></span>`
-      : `<span class="result-card__seller-avatar">${escapeHTML(item.seller.initials)}</span>`;
+    card.className = 'listing-mini j-card';
+    card.href      = `../listing/index.html?id=${esc(listing.id)}`;
+    card.setAttribute('aria-label', listing.title);
+    card.style.animation = 'fade-up 250ms ease both';
 
     card.innerHTML = `
-      <div class="result-card__thumb">
-        ${item.image
-          ? `<img src="${item.image}" alt="${escapeHTML(item.title)}" loading="lazy" />`
-          : `<div class="result-card__thumb-placeholder" aria-hidden="true">
-               ${item.type === 'request' ? '📢' : item.type === 'service' ? '🛠️' : '📦'}
+      <div class="listing-mini__img-wrap">
+        ${cover
+          ? `<img
+               class="listing-mini__img"
+               src="${esc(cover)}"
+               alt="${esc(listing.title)}"
+               loading="lazy"
+             />`
+          : `<div class="listing-mini__img-placeholder" aria-hidden="true">
+               <i class="fa-solid fa-image"></i>
              </div>`
         }
+        <span class="listing-mini__type pill pill--${esc(listing.listing_type || 'product')}">
+          ${esc(typeLabel)}
+        </span>
+        ${JARAProfile.isPro(seller)
+          ? `<span class="listing-mini__pro" aria-label="PRO seller">PRO</span>`
+          : ''
+        }
       </div>
-      <div class="result-card__content">
-        <div class="result-card__badges">
-          <span class="badge badge--${typeCls}">${typeLabel}</span>
-          ${item.verified ? `<span class="badge badge--verified"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Verified</span>` : ''}
-          ${item.pro      ? `<span class="badge badge--pro"><i class="fa-solid fa-crown" aria-hidden="true"></i> PRO</span>`         : ''}
-        </div>
-        <h3 class="result-card__title">${highlightedTitle}</h3>
-        <p class="result-card__category">${escapeHTML(item.category)}</p>
-        <p class="result-card__price">${escapeHTML(item.priceLabel || '—')}</p>
-        <div class="result-card__meta">
-          <span class="result-card__seller">
-            ${avatarHTML}
-            <span class="result-card__seller-name">${escapeHTML(item.seller.name)}</span>
-          </span>
-          ${item.distance
-            ? `<span class="result-card__distance">
-                 <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
-                 ${escapeHTML(item.distance)}
-               </span>`
+      <div class="listing-mini__body">
+        <p class="listing-mini__title">${esc(listing.title)}</p>
+        <p class="listing-mini__price">
+          ${esc(price)}
+          ${listing.negotiable
+            ? `<span class="listing-mini__neg">Negotiable</span>`
             : ''
           }
+        </p>
+        <div class="listing-mini__meta">
+          <div class="listing-mini__seller">
+            ${seller.avatar_url
+              ? `<img
+                   class="listing-mini__avatar"
+                   src="${esc(seller.avatar_url)}"
+                   alt="${esc(sellerName)}"
+                   loading="lazy"
+                 />`
+              : `<div class="listing-mini__avatar listing-mini__avatar--initials">
+                   ${esc(getInitials(sellerName))}
+                 </div>`
+            }
+            <div class="listing-mini__seller-info">
+              <span class="listing-mini__seller-name">${esc(sellerName)}</span>
+              ${seller.school
+                ? `<span class="listing-mini__school">${esc(seller.school)}</span>`
+                : ''
+              }
+            </div>
+          </div>
+          <span class="listing-mini__time">${esc(ago)}</span>
         </div>
-      </div>
-      <div class="result-card__action">
-        <span class="result-card__view-btn" aria-hidden="true">
-          <i class="fa-solid fa-arrow-right"></i>
-        </span>
+        ${listing.category
+          ? `<span class="listing-mini__cat">${esc(listing.category)}</span>`
+          : ''
+        }
       </div>
     `;
-
-    // Stagger animation
-    card.style.opacity   = '0';
-    card.style.transform = 'translateY(8px)';
 
     return card;
   }
 
 
   /* ==========================================================
-     14. RESULTS RENDERING — GROUPED BY TYPE
+     8. LOADING STATE
   ========================================================== */
 
-  const GROUP_CONFIG = [
-    { type: 'product',  emoji: '📦', label: 'Products' },
-    { type: 'service',  emoji: '🛠️', label: 'Services' },
-    { type: 'request',  emoji: '📢', label: 'Requests' },
-    { type: 'business', emoji: '🏪', label: 'Businesses' },
-  ];
+  function showLoading(on) {
+    if (loadingSpinner) loadingSpinner.hidden = !on;
 
-  function renderResults(results) {
-    srResultsBody.innerHTML = '';
-
-    // When filter is 'all', group by type
-    if (state.activeFilter === 'all' || state.activeFilter === 'nearby') {
-      GROUP_CONFIG.forEach(group => {
-        const items = results.filter(r => r.type === group.type);
-        if (items.length === 0) return;
-
-        const section = document.createElement('div');
-        section.className = 'result-group';
-
-        section.innerHTML = `
-          <div class="result-group__header">
-            <h3 class="result-group__title">
-              <span aria-hidden="true">${group.emoji}</span>
-              ${group.label}
-            </h3>
-            <span class="result-group__count">${items.length}</span>
-          </div>
-          <div class="result-group__list" role="list" aria-label="${group.label} results"></div>
-        `;
-
-        const list = section.querySelector('.result-group__list');
-        const cards = items.map(item => buildResultCard(item, state.query));
-        cards.forEach(c => list.appendChild(c));
-
-        srResultsBody.appendChild(section);
-
-        // Stagger animate cards in
-        requestAnimationFrame(() => {
-          cards.forEach((card, i) => {
-            setTimeout(() => {
-              card.style.transition = 'opacity 300ms ease, transform 300ms ease';
-              card.style.opacity    = '1';
-              card.style.transform  = 'translateY(0)';
-            }, i * 60);
-          });
-        });
-      });
-
-    } else {
-      // Single type — flat list, no grouping
-      const section = document.createElement('div');
-      section.className = 'result-group';
-      section.innerHTML = `<div class="result-group__list" role="list" aria-label="Results"></div>`;
-      const list  = section.querySelector('.result-group__list');
-      const cards = results.map(item => buildResultCard(item, state.query));
-      cards.forEach(c => list.appendChild(c));
-      srResultsBody.appendChild(section);
-
-      requestAnimationFrame(() => {
-        cards.forEach((card, i) => {
-          setTimeout(() => {
-            card.style.transition = 'opacity 300ms ease, transform 300ms ease';
-            card.style.opacity    = '1';
-            card.style.transform  = 'translateY(0)';
-          }, i * 50);
-        });
-      });
-    }
-  }
-
-
-  /* ==========================================================
-     15. BADGE CSS CLASSES — add missing ones dynamically
-  ========================================================== */
-
-  // Inject badge styles not already in search.css
-  const extraStyles = document.createElement('style');
-  extraStyles.textContent = `
-    .badge {
-      display: inline-flex; align-items: center; gap: 3px;
-      font-family: var(--font-display); font-size: .5625rem;
-      font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-      padding: 3px 8px; border-radius: 9999px; white-space: nowrap;
-    }
-    .badge--verified      { background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.3); color: #10B981; }
-    .badge--pro           { background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.3); color: #FCD34D; }
-    .badge--type          { background: rgba(124,58,237,.1); border: 1px solid rgba(124,58,237,.25); color: #A78BFA; }
-    .badge--type-service  { background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.25); color: #93C5FD; }
-    .badge--type-request  { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.25); color: #F59E0B; }
-    .badge--type-business { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.25); color: #10B981; }
-  `;
-  document.head.appendChild(extraStyles);
-
-
-  /* ==========================================================
-     16. URL PARAMETER HANDLING
-     Explore passes ?type=product or ?sort=trending
-     via links on quick-action cards.
-  ========================================================== */
-
-  function handleURLParams() {
-    const params = new URLSearchParams(window.location.search);
-    const type   = params.get('type');
-    const sort   = params.get('sort');
-    const q      = params.get('q');
-
-    if (q) {
-      // Pre-fill search from URL
-      searchInput.value = q;
-      state.query = q;
-      clearBtn.removeAttribute('hidden');
-      runSearch(q);
-      return;
-    }
-
-    if (type && type !== 'all') {
-      // Activate the right filter chip
-      filterChips.forEach(c => {
-        const isMatch = c.dataset.filter === type;
-        c.setAttribute('aria-pressed', isMatch ? 'true' : 'false');
-        c.classList.toggle('filter-chip--active', isMatch);
-      });
-      state.activeFilter = type;
-
-      // Run a broad search for that type
-      const typeLabelMap = {
-        product:  'products',
-        service:  'services',
-        request:  'requests',
-        business: 'businesses',
-      };
-      const searchTerm = typeLabelMap[type] || type;
-      searchInput.value = '';
-      state.query = '';
-
-      // Show all of that type without a query filter
-      state.results = ALL_LISTINGS.filter(i => i.type === type);
-      const filtered = applyFilters(state.results);
-      srFilters.removeAttribute('hidden');
-      srCount.textContent = `${filtered.length} result${filtered.length !== 1 ? 's' : ''} of`;
-      srQuery.textContent = typeLabelMap[type] || type;
-
-      if (filtered.length === 0) {
-        showPanel('empty');
-        return;
+    if (on && resultsGrid) {
+      // Show skeleton cards while loading
+      resultsGrid.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const skel = document.createElement('div');
+        skel.className = 'listing-mini j-skel j-skel-card';
+        skel.style.minHeight = '220px';
+        skel.setAttribute('aria-hidden', 'true');
+        resultsGrid.appendChild(skel);
       }
-
-      renderResults(filtered);
-      showPanel('results');
     }
   }
 
 
   /* ==========================================================
-     17. INIT
+     9. EMPTY STATE
   ========================================================== */
 
-  function init() {
-    renderRecentChips();
-    renderPopularChips();
-    renderCategories();
-    showPanel('default');
-    handleURLParams();
+  function showEmpty() {
+    if (!resultsGrid) return;
+    resultsGrid.innerHTML = '';
 
-    // Focus search bar and select any existing text
-    searchInput.focus();
-    searchInput.select();
+    const hasActiveFilters = S.query || S.type || S.category ||
+                             S.school || S.condition ||
+                             S.priceMin || S.priceMax;
+
+    if (window.jaraEmpty) {
+      window.jaraEmpty(resultsGrid, {
+        icon:      'fa-solid fa-magnifying-glass',
+        title:     'No matching listings found',
+        body:      hasActiveFilters
+          ? 'Try different keywords or clear your filters.'
+          : 'No listings have been posted yet. Be the first!',
+        btnLabel:  hasActiveFilters ? 'Clear Filters' : 'Create Listing',
+        btnAction: hasActiveFilters ? clearAllFilters : null,
+        btnHref:   hasActiveFilters ? null : '../sell/index.html',
+      });
+    } else {
+      // Fallback if jara-polish hasn't loaded
+      resultsGrid.innerHTML = `
+        <div class="search-empty" style="text-align:center;padding:3rem 1rem;grid-column:1/-1">
+          <p style="font-family:var(--sans);font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.5rem">
+            No matching listings found
+          </p>
+          <p style="font-size:.875rem;color:var(--text-2);margin-bottom:1rem">
+            Try different keywords or clear your filters.
+          </p>
+          <button id="inline清清ClearBtn" type="button"
+                  style="background:var(--accent);color:#fff;border:none;padding:10px 20px;
+                         border-radius:9999px;font-family:var(--sans);font-weight:700;cursor:pointer">
+            Clear Filters
+          </button>
+        </div>
+      `;
+      document.getElementById('inlineClearBtn')
+        ?.addEventListener('click', clearAllFilters);
+    }
+  }
+
+
+  /* ==========================================================
+     10. ERROR STATE
+  ========================================================== */
+
+  function showError() {
+    if (!resultsGrid) return;
+    resultsGrid.innerHTML = '';
+    if (window.jaraError) {
+      window.jaraError(resultsGrid, {
+        title:   "Couldn't load results",
+        body:    'Please check your connection and try again.',
+        onRetry: () => runSearch(true),
+      });
+    }
+  }
+
+
+  /* ==========================================================
+     11. FILTER LISTENERS
+     Wire every existing filter control to update state + search.
+     No new HTML controls are created — only listeners added.
+  ========================================================== */
+
+  /* ---- Type chips (Product / Service / Request) ---- */
+  typeChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const val  = chip.dataset.type;
+      S.type     = S.type === val ? null : val;
+      S.offset   = 0;
+
+      typeChips.forEach(c =>
+        c.classList.toggle('chip--active', c.dataset.type === S.type)
+      );
+
+      runSearch(true);
+    });
+  });
+
+  /* ---- Category select ---- */
+  categorySelect?.addEventListener('change', () => {
+    S.category = categorySelect.value || null;
+    S.offset   = 0;
+    runSearch(true);
+  });
+
+  /* ---- Category chips (if present instead of select) ---- */
+  categoryChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const val    = chip.dataset.category;
+      S.category   = S.category === val ? null : val;
+      S.offset     = 0;
+
+      categoryChips.forEach(c =>
+        c.classList.toggle('chip--active', c.dataset.category === S.category)
+      );
+
+      runSearch(true);
+    });
+  });
+
+  /* ---- School select ---- */
+  schoolSelect?.addEventListener('change', () => {
+    S.school = schoolSelect.value || null;
+    S.offset = 0;
+    runSearch(true);
+  });
+
+  /* ---- Sort select ---- */
+  sortSelect?.addEventListener('change', () => {
+    const val = sortSelect.value || 'newest';
+
+    switch (val) {
+      case 'newest':
+        S.sortBy  = 'created_at';
+        S.sortAsc = false;
+        break;
+      case 'oldest':
+        S.sortBy  = 'created_at';
+        S.sortAsc = true;
+        break;
+      case 'price_low':
+        S.sortBy  = 'price';
+        S.sortAsc = true;
+        break;
+      case 'price_high':
+        S.sortBy  = 'price';
+        S.sortAsc = false;
+        break;
+      default:
+        S.sortBy  = 'created_at';
+        S.sortAsc = false;
+    }
+
+    S.offset = 0;
+    runSearch(true);
+  });
+
+  /* ---- Condition chips ---- */
+  conditionChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const val    = chip.dataset.condition;
+      S.condition  = S.condition === val ? null : val;
+      S.offset     = 0;
+
+      conditionChips.forEach(c =>
+        c.classList.toggle('chip--active', c.dataset.condition === S.condition)
+      );
+
+      runSearch(true);
+    });
+  });
+
+  /* ---- Price range inputs (debounced) ---- */
+  const debouncedPriceSearch = debounce(() => {
+    S.priceMin = priceMinInput?.value || null;
+    S.priceMax = priceMaxInput?.value || null;
+    S.offset   = 0;
+    runSearch(true);
+  }, 500);
+
+  priceMinInput?.addEventListener('input', debouncedPriceSearch);
+  priceMaxInput?.addEventListener('input', debouncedPriceSearch);
+
+  /* ---- Filter panel toggle (mobile) ---- */
+  filterToggleBtn?.addEventListener('click', () => {
+    if (!filterPanel) return;
+    const isOpen = !filterPanel.hidden;
+    filterPanel.hidden = isOpen;
+    filterToggleBtn.setAttribute('aria-expanded', String(!isOpen));
+  });
+
+  /* ---- Load more ---- */
+  loadMoreBtn?.addEventListener('click', () => runSearch(false));
+
+
+  /* ==========================================================
+     12. SEARCH INPUT LISTENER
+     Uses the 300ms debounce — typing feels instant but
+     Supabase is only hit when the user pauses.
+  ========================================================== */
+
+  searchInput?.addEventListener('input', () => {
+    S.query  = searchInput.value.trim();
+    S.offset = 0;
+    debouncedSearch();
+  });
+
+  /* ---- Also run on Enter key without waiting for debounce ---- */
+  searchInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      S.query = searchInput.value.trim();
+      S.offset = 0;
+      runSearch(true);
+    }
+  });
+
+
+  /* ==========================================================
+     13. CLEAR FILTERS
+  ========================================================== */
+
+  function clearAllFilters() {
+    S.query     = '';
+    S.type      = null;
+    S.category  = null;
+    S.school    = null;
+    S.condition = null;
+    S.priceMin  = null;
+    S.priceMax  = null;
+    S.sortBy    = 'created_at';
+    S.sortAsc   = false;
+    S.offset    = 0;
+
+    // Reset input values
+    if (searchInput)    searchInput.value    = '';
+    if (categorySelect) categorySelect.value = '';
+    if (schoolSelect)   schoolSelect.value   = '';
+    if (sortSelect)     sortSelect.value     = 'newest';
+    if (priceMinInput)  priceMinInput.value  = '';
+    if (priceMaxInput)  priceMaxInput.value  = '';
+
+    // Reset all chip active states
+    [typeChips, categoryChips, conditionChips].forEach(chips => {
+      chips.forEach(c => c.classList.remove('chip--active'));
+    });
+
+    syncUrlState();
+    runSearch(true);
+  }
+
+  clearFiltersBtn?.addEventListener('click', clearAllFilters);
+
+
+  /* ==========================================================
+     14. URL STATE SYNC
+     Persists search state in the URL query string.
+     This means:
+       • Sharing a search URL works.
+       • Back button returns to same results.
+       • Page refresh keeps the search.
+  ========================================================== */
+
+  function syncUrlState() {
+    const params = new URLSearchParams();
+    if (S.query)     params.set('q',    S.query);
+    if (S.type)      params.set('type', S.type);
+    if (S.category)  params.set('cat',  S.category);
+    if (S.school)    params.set('school', S.school);
+    if (S.condition) params.set('cond', S.condition);
+    if (S.priceMin)  params.set('min',  S.priceMin);
+    if (S.priceMax)  params.set('max',  S.priceMax);
+    if (S.sortBy !== 'created_at' || S.sortAsc) {
+      params.set('sort', S.sortAsc ? `${S.sortBy}_asc` : `${S.sortBy}_desc`);
+    }
+
+    const newUrl = params.toString()
+      ? `${window.location.pathname}?${params.toString()}`
+      : window.location.pathname;
+
+    window.history.replaceState({}, '', newUrl);
+  }
+
+  function loadUrlState() {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('q'))      S.query     = params.get('q');
+    if (params.get('type'))   S.type      = params.get('type');
+    if (params.get('cat'))    S.category  = params.get('cat');
+    if (params.get('school')) S.school    = params.get('school');
+    if (params.get('cond'))   S.condition = params.get('cond');
+    if (params.get('min'))    S.priceMin  = params.get('min');
+    if (params.get('max'))    S.priceMax  = params.get('max');
+
+    const sort = params.get('sort');
+    if (sort) {
+      const [field, dir] = sort.split('_');
+      S.sortBy  = field === 'price' ? 'price' : 'created_at';
+      S.sortAsc = dir === 'asc';
+    }
+
+    // Restore UI to match loaded state
+    if (searchInput && S.query)       searchInput.value    = S.query;
+    if (categorySelect && S.category) categorySelect.value = S.category;
+    if (schoolSelect && S.school)     schoolSelect.value   = S.school;
+
+    if (S.type) {
+      typeChips.forEach(c =>
+        c.classList.toggle('chip--active', c.dataset.type === S.type)
+      );
+    }
+
+    if (S.category) {
+      categoryChips.forEach(c =>
+        c.classList.toggle('chip--active', c.dataset.category === S.category)
+      );
+    }
+
+    if (S.condition) {
+      conditionChips.forEach(c =>
+        c.classList.toggle('chip--active', c.dataset.condition === S.condition)
+      );
+    }
+
+    if (sortSelect && S.sortBy) {
+      if (S.sortBy === 'price' && !S.sortAsc)  sortSelect.value = 'price_high';
+      if (S.sortBy === 'price' && S.sortAsc)   sortSelect.value = 'price_low';
+      if (S.sortBy === 'created_at' && S.sortAsc) sortSelect.value = 'oldest';
+    }
+
+    if (priceMinInput && S.priceMin) priceMinInput.value = S.priceMin;
+    if (priceMaxInput && S.priceMax) priceMaxInput.value = S.priceMax;
+  }
+
+
+  /* ==========================================================
+     15. RESULTS COUNT UPDATE
+  ========================================================== */
+
+  function updateResultsCount(count) {
+    if (!resultsCount) return;
+    if (!S.hasSearched) { resultsCount.textContent = ''; return; }
+    resultsCount.textContent =
+      count === 0  ? 'No results' :
+      count === 1  ? '1 result'   :
+                     `${count.toLocaleString()} results`;
+  }
+
+
+  /* ==========================================================
+     UTILITY
+  ========================================================== */
+
+  function esc(str) {
+    if (!str && str !== 0) return '';
+    const d = document.createElement('div');
+    d.textContent = String(str);
+    return d.innerHTML;
+  }
+
+  function getInitials(name) {
+    if (!name) return '?';
+    const words = name.trim().split(' ').filter(Boolean);
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+
+
+  /* ==========================================================
+     INIT
+  ========================================================== */
+
+  async function init() {
+    // Load profile for nav avatar etc.
+    try {
+      const profile = await JARAProfile.load();
+      if (profile) {
+        window.__JARA_IS_FOUNDER = JARAProfile.isFounder(profile);
+        window.__JARA_IS_PRO     = JARAProfile.isPro(profile);
+      }
+    } catch (e) {
+      // Non-fatal — search still works without profile
+    }
+
+    // Restore state from URL if present (e.g. shared link, back button)
+    loadUrlState();
+
+    /*
+     Run initial search:
+       - If URL has a query/filter → search immediately with those params
+       - If arriving fresh → show recent listings (no filter = all active)
+    */
+    await runSearch(true);
   }
 
   init();
 
-
-/* ============================================================
-   End of DOMContentLoaded
-============================================================ */
 });
