@@ -1,33 +1,64 @@
 /* ============================================================
    JARA ∆ — Signup Page Logic  (auth-integrated)
    js/signup.js
+
+   Depends on:
+     - window._supabase  → set by js/supabase-client.js
+     - window.JARAAuth   → set by js/auth-guard.js
+     - HTML IDs in auth/signup.html
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  /* ---- DOM refs ---- */
-  const form            = document.getElementById('signupForm');
-  const fullNameInput   = document.getElementById('fullName');
-  const emailInput      = document.getElementById('email');
-  const passwordInput   = document.getElementById('newPassword');
-  const confirmInput    = document.getElementById('confirmPassword');
-  const termsCheckbox   = document.getElementById('terms');
-  const submitBtn       = document.getElementById('submitBtn');
-  const authAlert       = document.getElementById('authAlert');
-  const alertMessage    = document.getElementById('alertMessage');
-  const alertIcon       = document.getElementById('alertIcon');
-  const signupCard      = document.getElementById('signupCard');
-  const successCard     = document.getElementById('successCard');
-  const successEmail    = document.getElementById('successEmail');
-  const resendBtn       = document.getElementById('resendBtn');
-  const togglePassBtn   = document.getElementById('togglePassword');
-  const togglePassIcon  = document.getElementById('togglePasswordIcon');
-  const strengthMeter   = document.getElementById('strengthMeter');
-  const strengthLabel   = document.getElementById('passwordStrengthLabel');
+  /* ==========================================================
+     DOM REFS — all IDs match auth/signup.html exactly
+  ========================================================== */
+  const form             = document.getElementById('signupForm');
+  const fullNameInput    = document.getElementById('fullName');
+  const emailInput       = document.getElementById('email');
+  const passwordInput    = document.getElementById('password');           // was 'newPassword' ❌
+  const confirmInput     = document.getElementById('confirmPassword');
+  const termsCheckbox    = document.getElementById('terms');
+  const submitBtn        = document.getElementById('submitBtn');
+  const authAlert        = document.getElementById('authAlert');
+  const alertMessage     = document.getElementById('alertMessage');
+  const alertIcon        = document.getElementById('alertIcon');
+  const signupCard       = document.getElementById('signupCard');
+  const successCard      = document.getElementById('successCard');
+  const successEmail     = document.getElementById('successEmail');
+  const resendBtn        = document.getElementById('resendBtn');
+
+  // Password toggle
+  const togglePassBtn    = document.getElementById('togglePassword');
+  const togglePassIcon   = document.getElementById('togglePasswordIcon');
+
+  // Confirm password toggle
+  const toggleConfirmBtn  = document.getElementById('toggleConfirmPassword'); // was missing ❌
+  const toggleConfirmIcon = document.getElementById('toggleConfirmIcon');     // was missing ❌
+
+  // Strength meter
+  const strengthMeter    = document.getElementById('strengthMeter');
+  const strengthLabel    = document.getElementById('passwordStrengthLabel');
+
+  // Field error elements — matched to HTML exactly
+  const fullNameError      = document.getElementById('fullNameError');       // was 'nameError' ❌
+  const fullNameErrorText  = document.getElementById('fullNameErrorText');   // was 'nameErrorText' ❌
+  const emailError         = document.getElementById('emailError');
+  const emailErrorText     = document.getElementById('emailErrorText');
+  const passwordError      = document.getElementById('passwordError');
+  const passwordErrorText  = document.getElementById('passwordErrorText');
+  const confirmError       = document.getElementById('confirmPasswordError');     // was 'confirmError' ❌
+  const confirmErrorText   = document.getElementById('confirmPasswordErrorText'); // was 'confirmErrorText' ❌
+  const termsError         = document.getElementById('termsError');          // was missing ❌
+  const termsErrorText     = document.getElementById('termsErrorText');      // was missing ❌
 
   let lastEmail = '';
 
-  /* ---- Helpers ---- */
+
+  /* ==========================================================
+     HELPERS
+  ========================================================== */
+
   function showAlert(type, msg) {
     if (!authAlert || !alertMessage) return;
     authAlert.className = `auth-alert${type === 'success' ? ' auth-alert--success' : ''}`;
@@ -38,9 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     alertMessage.textContent = msg;
     authAlert.removeAttribute('hidden');
+    authAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function hideAlert() { authAlert?.setAttribute('hidden', ''); }
+  function hideAlert() {
+    authAlert?.setAttribute('hidden', '');
+  }
 
   function setLoading(on) {
     if (!submitBtn) return;
@@ -49,43 +83,51 @@ document.addEventListener('DOMContentLoaded', () => {
     submitBtn.classList.toggle('is-loading', on);
   }
 
-  function fieldError(inputEl, errorEl, textEl, msg) {
-    if (!inputEl || !errorEl || !textEl) return;
+  function showFieldError(errorEl, textEl, inputEl, msg) {
+    if (!errorEl || !textEl || !inputEl) return;
     textEl.textContent = msg;
     errorEl.removeAttribute('hidden');
     inputEl.classList.add('is-error');
     inputEl.setAttribute('aria-invalid', 'true');
   }
 
-  function clearFieldErrors() {
-    document.querySelectorAll('.field__input').forEach(el => {
-      el.classList.remove('is-error');
-      el.removeAttribute('aria-invalid');
-    });
-    document.querySelectorAll('.field__error').forEach(el => {
-      el.setAttribute('hidden', '');
-    });
+  function clearFieldError(errorEl, inputEl) {
+    if (!errorEl || !inputEl) return;
+    errorEl.setAttribute('hidden', '');
+    inputEl.classList.remove('is-error');
+    inputEl.removeAttribute('aria-invalid');
   }
 
-  /* ---- Password strength ---- */
-  const STRENGTH_LABELS = { 1:'Weak', 2:'Fair', 3:'Good', 4:'Strong' };
+  function clearAllFieldErrors() {
+    clearFieldError(fullNameError,  fullNameInput);
+    clearFieldError(emailError,     emailInput);
+    clearFieldError(passwordError,  passwordInput);
+    clearFieldError(confirmError,   confirmInput);
+    if (termsError) termsError.setAttribute('hidden', '');
+  }
+
+
+  /* ==========================================================
+     PASSWORD STRENGTH
+  ========================================================== */
+
+  const STRENGTH_LABELS = { 1: 'Weak', 2: 'Fair', 3: 'Good', 4: 'Strong' };
 
   function scorePassword(pw) {
     if (!pw) return 0;
     let s = 0;
-    if (pw.length >= 8)                        s++;
-    if (/\d/.test(pw))                         s++;
-    if (/[^a-zA-Z0-9]/.test(pw))              s++;
-    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+    if (pw.length >= 8)                         s++;
+    if (/\d/.test(pw))                          s++;
+    if (/[^a-zA-Z0-9]/.test(pw))               s++;
+    if (/[a-z]/.test(pw) && /[A-Z]/.test(pw))  s++;
     return Math.max(s, 1);
   }
 
   passwordInput?.addEventListener('input', () => {
+    hideAlert();
+    clearFieldError(passwordError, passwordInput);
     const val = passwordInput.value;
-    if (!val) {
-      strengthMeter?.setAttribute('hidden', '');
-      return;
-    }
+    if (!val) { strengthMeter?.setAttribute('hidden', ''); return; }
     const score = scorePassword(val);
     if (strengthMeter) {
       strengthMeter.removeAttribute('hidden');
@@ -94,93 +136,108 @@ document.addEventListener('DOMContentLoaded', () => {
     if (strengthLabel) strengthLabel.textContent = STRENGTH_LABELS[score] || '';
   });
 
-  /* ---- Password toggle ---- */
+
+  /* ==========================================================
+     PASSWORD TOGGLES
+  ========================================================== */
+
   togglePassBtn?.addEventListener('click', () => {
     const isHidden = passwordInput.type === 'password';
     passwordInput.type = isHidden ? 'text' : 'password';
     if (togglePassIcon) {
       togglePassIcon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
     }
-    togglePassBtn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+    togglePassBtn.setAttribute('aria-label',   isHidden ? 'Hide password' : 'Show password');
+    togglePassBtn.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
   });
 
-  /* ---- Clear on input ---- */
-  [fullNameInput, emailInput, passwordInput, confirmInput].forEach(el => {
-    el?.addEventListener('input', hideAlert);
+  toggleConfirmBtn?.addEventListener('click', () => {
+    const isHidden = confirmInput.type === 'password';
+    confirmInput.type = isHidden ? 'text' : 'password';
+    if (toggleConfirmIcon) {
+      toggleConfirmIcon.className = isHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+    }
+    toggleConfirmBtn.setAttribute('aria-label',   isHidden ? 'Hide password' : 'Show password');
+    toggleConfirmBtn.setAttribute('aria-pressed', isHidden ? 'true' : 'false');
   });
 
-  /* ---- Form validation ---- */
+
+  /* ==========================================================
+     CLEAR ERRORS ON INPUT
+  ========================================================== */
+
+  fullNameInput?.addEventListener('input', () => { clearFieldError(fullNameError, fullNameInput); hideAlert(); });
+  emailInput?.addEventListener('input',    () => { clearFieldError(emailError, emailInput);       hideAlert(); });
+  confirmInput?.addEventListener('input',  () => { clearFieldError(confirmError, confirmInput);   hideAlert(); });
+
+
+  /* ==========================================================
+     VALIDATION
+  ========================================================== */
+
   function validate() {
-    clearFieldErrors();
+    clearAllFieldErrors();
     hideAlert();
     let valid = true;
 
-    const name     = fullNameInput?.value.trim()  || '';
-    const email    = emailInput?.value.trim()     || '';
-    const password = passwordInput?.value         || '';
-    const confirm  = confirmInput?.value          || '';
-
+    /* ---- Full name ---- */
+    const name = fullNameInput?.value.trim() || '';
     if (!name) {
-      fieldError(
-        fullNameInput,
-        document.getElementById('nameError'),
-        document.getElementById('nameErrorText'),
-        'Please enter your full name.'
-      );
+      showFieldError(fullNameError, fullNameErrorText, fullNameInput,
+        'Please enter your full name.');
       valid = false;
     }
 
+    /* ---- Email ---- */
+    const email = emailInput?.value.trim() || '';
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      fieldError(
-        emailInput,
-        document.getElementById('emailError'),
-        document.getElementById('emailErrorText'),
-        'Please enter a valid email address.'
-      );
+      showFieldError(emailError, emailErrorText, emailInput,
+        'Please enter a valid email address.');
       valid = false;
     }
 
-    if (!password || password.length < 8) {
-      fieldError(
-        passwordInput,
-        document.getElementById('passwordError'),
-        document.getElementById('passwordErrorText'),
-        'Password must be at least 8 characters.'
-      );
+    /* ---- Password ---- */
+    const pw = passwordInput?.value || '';
+    if (!pw || pw.length < 8) {
+      showFieldError(passwordError, passwordErrorText, passwordInput,
+        'Password must be at least 8 characters.');
+      valid = false;
+    } else if (scorePassword(pw) < 2) {
+      showFieldError(passwordError, passwordErrorText, passwordInput,
+        'Password is too weak. Add numbers or symbols.');
       valid = false;
     }
 
-    if (password && scorePassword(password) < 2) {
-      fieldError(
-        passwordInput,
-        document.getElementById('passwordError'),
-        document.getElementById('passwordErrorText'),
-        'Password is too weak. Add numbers or symbols.'
-      );
+    /* ---- Confirm password ---- */
+    const confirm = confirmInput?.value || '';
+    if (!confirm || confirm !== pw) {
+      showFieldError(confirmError, confirmErrorText, confirmInput,
+        'Passwords do not match.');
       valid = false;
     }
 
-    if (!confirm || confirm !== password) {
-      fieldError(
-        confirmInput,
-        document.getElementById('confirmError'),
-        document.getElementById('confirmErrorText'),
-        'Passwords do not match.'
-      );
-      valid = false;
-    }
-
+    /* ---- Terms checkbox ---- */
     if (!termsCheckbox?.checked) {
-      showAlert('error', 'Please accept the Terms of Service to continue.');
+      if (termsError && termsErrorText) {
+        termsErrorText.textContent = 'Please accept the Terms of Service to continue.';
+        termsError.removeAttribute('hidden');
+      } else {
+        showAlert('error', 'Please accept the Terms of Service to continue.');
+      }
       valid = false;
     }
 
     return valid;
   }
 
-  /* ---- Form submit ---- */
+
+  /* ==========================================================
+     FORM SUBMIT
+  ========================================================== */
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     if (!validate()) return;
 
     setLoading(true);
@@ -191,28 +248,13 @@ document.addEventListener('DOMContentLoaded', () => {
     lastEmail      = email;
 
     try {
-      /*
-       Create the Supabase Auth account.
-       The handle_new_user() database trigger (003_functions.sql)
-       automatically creates a row in the profiles table.
-
-       We pass full_name in the metadata so the trigger can
-       use it when creating the profile row.
-
-       FUTURE: Pass additional metadata here as more onboarding
-       fields are introduced (e.g. account_type, school_id):
-         data: { full_name, account_type, school_id }
-      */
       const { data, error } = await window._supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: fullName,
-          },
+          data: { full_name: fullName },
           /*
-           FUTURE: Set emailRedirectTo to your live domain
-           so the confirmation link lands on the correct page.
+           FUTURE: Set emailRedirectTo to your live GitHub Pages URL:
              emailRedirectTo: 'https://yourname.github.io/jara/auth/login.html'
           */
         },
@@ -233,11 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      /*
-       Supabase returns identities = [] when the user already exists
-       but email confirmation is required (prevents enumeration).
-       In either case we show the success screen.
-      */
+      // Success — show verification screen
       if (successEmail) successEmail.textContent = email;
       if (signupCard)   signupCard.setAttribute('hidden', '');
       if (successCard)  successCard.removeAttribute('hidden');
@@ -250,7 +288,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  /* ---- Resend verification email ---- */
+
+  /* ==========================================================
+     RESEND VERIFICATION EMAIL
+  ========================================================== */
+
   resendBtn?.addEventListener('click', async () => {
     if (!lastEmail) return;
     resendBtn.disabled    = true;
