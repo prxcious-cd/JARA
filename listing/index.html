@@ -429,22 +429,15 @@
 
   
 <script src="../js/auth-guard.js"></script>
+<script src="../js/jara-profile.js"></script>
+<script src="../js/jara-listings.js"></script>
 <script src="../js/listing.js"></script>
-
 <script>
-  /*
-   Listing page is public — guests can view listings.
-   We use getCurrentUser() (non-redirecting) here.
-  */
   JARAAuth.getCurrentUser().then(result => {
-    window.__JARA_USER = result?.user || null;
+    window.__JARA_USER    = result?.user    || null;
     window.__JARA_PROFILE = result?.profile || null;
-
-    /*
-     FUTURE: If user is null, show "Log in to save" on the
-     bookmark button and "Log in to contact" on the CTA bar.
-    */
   });
 </script>
+  
 </body>
 </html>
