@@ -35,7 +35,7 @@
      1. CONSTANTS
   ========================================================== */
 
-  const STORAGE_BUCKET   = 'listing-images';
+  const STORAGE_BUCKET   = 'product-images';
   const MAX_IMAGE_BYTES  = 5 * 1024 * 1024;   // 5 MB per image
   const MAX_IMAGES       = 8;
   const DEFAULT_LIMIT    = 20;
