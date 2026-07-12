@@ -272,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Signup Error:', error);
 
       if (error) {
-        alert('SUPABASE ERROR: ' + error.message);
+        alert('SUPABASE ERROR: ' + JSON.stringify(error));
       }
 
       if (error) {
