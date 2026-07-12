@@ -238,7 +238,15 @@ document.addEventListener('DOMContentLoaded', () => {
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    if (!validate()) return;
+    // DEBUG — confirm validate() result
+    const isValid = validate();
+    console.log('validate() returned:', isValid);
+    alert('validate() returned: ' + isValid);
+    if (!isValid) return;
+
+    // DEBUG — confirm Supabase client exists
+    console.log('window._supabase:', window._supabase);
+    alert('Supabase client exists: ' + (!!window._supabase));
 
     setLoading(true);
 
@@ -264,7 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Signup Error:', error);
 
       if (error) {
-        alert(error.message);
+        alert('SUPABASE ERROR: ' + error.message);
       }
 
       if (error) {
@@ -289,7 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch (err) {
+      // DEBUG — show the actual exception
       console.error('JARA signup error:', err);
+      alert('EXCEPTION CAUGHT: ' + err.message);
       showAlert('error', 'A network error occurred. Please check your connection.');
       setLoading(false);
     }
