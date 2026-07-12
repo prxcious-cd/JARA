@@ -246,23 +246,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = passwordInput.value;
     const fullName = fullNameInput.value.trim();
     lastEmail      = email;
-
-const { data, error } = await window._supabase.auth.signUp({
+    
+     try {
+      const { data, error } = await window._supabase.auth.signUp({
         email,
         password,
         options: {
           data: { full_name: fullName },
+          /*
+           FUTURE: Set emailRedirectTo to your live GitHub Pages URL:
+             emailRedirectTo: 'https://yourname.github.io/jara/auth/login.html'
+          */
         },
       });
-
-      console.log("Signup Data:", data);
-      console.log("Signup Error:", error);
-
-      if (error) {
-        alert(error.message);
-      }
-
-      if (error) {
 
       if (error) {
         let msg = 'Something went wrong. Please try again.';
