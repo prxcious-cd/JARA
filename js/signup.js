@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const form             = document.getElementById('signupForm');
   const fullNameInput    = document.getElementById('fullName');
   const emailInput       = document.getElementById('email');
-  const passwordInput    = document.getElementById('password');           // was 'newPassword' ❌
+  const passwordInput    = document.getElementById('password');
   const confirmInput     = document.getElementById('confirmPassword');
   const termsCheckbox    = document.getElementById('terms');
   const submitBtn        = document.getElementById('submitBtn');
@@ -33,24 +33,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const togglePassIcon   = document.getElementById('togglePasswordIcon');
 
   // Confirm password toggle
-  const toggleConfirmBtn  = document.getElementById('toggleConfirmPassword'); // was missing ❌
-  const toggleConfirmIcon = document.getElementById('toggleConfirmIcon');     // was missing ❌
+  const toggleConfirmBtn  = document.getElementById('toggleConfirmPassword');
+  const toggleConfirmIcon = document.getElementById('toggleConfirmIcon');
 
   // Strength meter
   const strengthMeter    = document.getElementById('strengthMeter');
   const strengthLabel    = document.getElementById('passwordStrengthLabel');
 
   // Field error elements — matched to HTML exactly
-  const fullNameError      = document.getElementById('fullNameError');       // was 'nameError' ❌
-  const fullNameErrorText  = document.getElementById('fullNameErrorText');   // was 'nameErrorText' ❌
+  const fullNameError      = document.getElementById('fullNameError');
+  const fullNameErrorText  = document.getElementById('fullNameErrorText');
   const emailError         = document.getElementById('emailError');
   const emailErrorText     = document.getElementById('emailErrorText');
   const passwordError      = document.getElementById('passwordError');
   const passwordErrorText  = document.getElementById('passwordErrorText');
-  const confirmError       = document.getElementById('confirmPasswordError');     // was 'confirmError' ❌
-  const confirmErrorText   = document.getElementById('confirmPasswordErrorText'); // was 'confirmErrorText' ❌
-  const termsError         = document.getElementById('termsError');          // was missing ❌
-  const termsErrorText     = document.getElementById('termsErrorText');      // was missing ❌
+  const confirmError       = document.getElementById('confirmPasswordError');
+  const confirmErrorText   = document.getElementById('confirmPasswordErrorText');
+  const termsError         = document.getElementById('termsError');
+  const termsErrorText     = document.getElementById('termsErrorText');
 
   let lastEmail = '';
 
@@ -246,8 +246,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const password = passwordInput.value;
     const fullName = fullNameInput.value.trim();
     lastEmail      = email;
-    
-     try {
+
+    try {
       const { data, error } = await window._supabase.auth.signUp({
         email,
         password,
@@ -259,6 +259,13 @@ document.addEventListener('DOMContentLoaded', () => {
           */
         },
       });
+
+      console.log('Signup Data:', data);
+      console.log('Signup Error:', error);
+
+      if (error) {
+        alert(error.message);
+      }
 
       if (error) {
         let msg = 'Something went wrong. Please try again.';
