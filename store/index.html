@@ -494,8 +494,12 @@
   JARAAuth.getCurrentUser().then(result => {
     window.__JARA_USER    = result?.user    || null;
     window.__JARA_PROFILE = result?.profile || null;
+    // Reveal page regardless of login state
+    // Store is a public page — guests can view it
+    document.body.style.visibility = '';
+    document.body.style.opacity    = '';
   });
-</script>
+                                 </script>
   
 </body>
 </html>
