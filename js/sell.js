@@ -1,332 +1,747 @@
 /* ============================================================
-   JARA ∆ — Create / Edit Listing  (listings-integrated)
+   JARA ∆ — Create Listing Wizard  (sell-integrated)
    js/sell.js
 
-   Handles the create and edit listing flow.
-   Saves everything to Supabase via JARAListings.
+   Drives the 3-step create listing flow in sell/index.html.
+
+   Step 1 — Choose type (product / service / request)
+   Step 2 — Fill details (title, category, description,
+             photos, location, price, availability)
+   Step 3 — Preview then publish to Supabase
 
    Depends on:
-     - window._supabase    (supabase-client.js)
+     - window._supabase    (supabase-client.js — in <head>)
      - window.JARAAuth     (auth-guard.js)
      - window.JARAProfile  (jara-profile.js)
      - window.JARAListings (jara-listings.js)
+     - HTML IDs in sell/index.html
 
-   URL params:
-     ?edit=LISTING_ID  — load and edit existing listing
-     (no params)       — create new listing
-
-   TABLE OF CONTENTS
-   1.  State
-   2.  DOM refs
-   3.  Mode detection (create vs edit)
-   4.  Form field collection
-   5.  Image management
-   6.  Validation
-   7.  Load existing listing (edit mode)
-   8.  Form submit
-   9.  Delete listing
-   10. Init
+   All IDs verified against sell/index.html.
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', async () => {
 
   /* ==========================================================
-     1. STATE
+     STATE
   ========================================================== */
 
   const S = {
-    mode:             'create',    // 'create' | 'edit'
-    listingId:        null,
-    existingListing:  null,
-    existingImages:   [],          // URLs already in Supabase
-    newImageFiles:    [],          // File objects to upload
-    removedImageUrls: [],          // existing URLs to delete
-    profile:          null,
+    step:          1,
+    listingType:   null,      // 'product' | 'service' | 'request'
+    title:         '',
+    category:      '',
+    description:   '',
+    tags:          [],
+    photos:        [],        // File objects
+    location:      '',
+    priceType:     null,      // 'fixed' | 'negotiable' | 'free' | 'contact' | 'quote'
+    priceAmount:   null,
+    availability:  'available',
+    profile:       null,
+    isLoading:     false,
   };
 
-
   /* ==========================================================
-     2. DOM REFS
+     CATEGORIES — loaded from Supabase or fallback static list
   ========================================================== */
 
-  const form          = document.getElementById('sellForm') ||
-                        document.getElementById('listingForm');
-  const titleInput    = document.getElementById('listingTitle');
-  const descInput     = document.getElementById('listingDesc');
-  const categoryInput = document.getElementById('listingCategory');
-  const typeInput     = document.getElementById('listingType');
-  const priceInput    = document.getElementById('listingPrice');
-  const negCheckbox   = document.getElementById('listingNegotiable');
-  const conditionInput= document.getElementById('listingCondition');
-  const locationInput = document.getElementById('listingLocation');
-  const imageInput    = document.getElementById('listingImages');
-  const imagePreview  = document.getElementById('imagePreviewGrid');
-  const submitBtn     = document.getElementById('submitListingBtn');
-  const deleteBtn     = document.getElementById('deleteListingBtn');
-  const pageTitle     = document.getElementById('sellPageTitle');
-  const alertEl       = document.getElementById('sellAlert');
-  const alertText     = document.getElementById('sellAlertText');
+  const STATIC_CATEGORIES = [
+    'Books & Stationery',
+    'Food & Drinks',
+    'Tech & Repairs',
+    'Personal Care',
+    'Creative Services',
+    'Laundry & Errands',
+    'Tutoring',
+    'Hostel & Home',
+    'Power & Generator',
+    'Fashion & Clothing',
+    'Health & Wellness',
+    'Transport',
+    'Other',
+  ];
+
+  /* ==========================================================
+     DOM REFS — every ID verified against sell/index.html
+  ========================================================== */
+
+  // Topbar
+  const topbarBack      = document.getElementById('topbarBack');
+  const topbarTitle     = document.getElementById('topbarTitle');
+  const topbarStepBadge = document.getElementById('topbarStepBadge');
+  const topbarStepText  = document.getElementById('topbarStepText');
+
+  // Progress
+  const sellProgress    = document.getElementById('sellProgress');
+  const progressFill    = document.getElementById('progressFill');
+
+  // Steps
+  const step1           = document.getElementById('step1');
+  const step2           = document.getElementById('step2');
+  const step3           = document.getElementById('step3');
+
+  // Step 1
+  const typeCards       = document.querySelectorAll('.type-card');
+  const step1Next       = document.getElementById('step1Next');
+  const typeError       = document.getElementById('typeError');
+
+  // Step 2
+  const step2Alert      = document.getElementById('step2Alert');
+  const step2AlertText  = document.getElementById('step2AlertText');
+  const postTitle       = document.getElementById('postTitle');
+  const titleCharCount  = document.getElementById('titleCharCount');
+  const postCategory    = document.getElementById('postCategory');
+  const postDescription = document.getElementById('postDescription');
+  const descCharCount   = document.getElementById('descriptionCharCount');
+  const tagInput        = document.getElementById('tagInput');
+  const tagsDisplay     = document.getElementById('tagsDisplay');
+  const photoGrid       = document.getElementById('photoGrid');
+  const locationManual  = document.getElementById('locationManual');
+  const locationStatus  = document.getElementById('locationStatus');
+  const useLocationBtn  = document.getElementById('useLocationBtn');
+  const priceTypeGroup  = document.getElementById('priceTypeGroup');
+  const priceAmountWrap = document.getElementById('priceAmountWrap');
+  const priceAmount     = document.getElementById('priceAmount');
+  const statusGroup     = document.getElementById('statusGroup');
+  const step2Back       = document.getElementById('step2Back');
+  const step2Next       = document.getElementById('step2Next');
+  const step2Eyebrow    = document.getElementById('step2Eyebrow');
+
+  // Step 3 — preview
+  const previewTitle        = document.getElementById('previewTitle');
+  const previewDescription  = document.getElementById('previewDescription');
+  const previewPrice        = document.getElementById('previewPrice');
+  const previewLocationText = document.getElementById('previewLocationText');
+  const previewTypeBadge    = document.getElementById('previewTypeBadge');
+  const previewStatusBadge  = document.getElementById('previewStatusBadge');
+  const previewTags         = document.getElementById('previewTags');
+  const previewAvatar       = document.getElementById('previewAvatar');
+  const previewSellerName   = document.getElementById('previewSellerName');
+  const previewSellerType   = document.getElementById('previewSellerType');
+  const previewWhatsapp     = document.getElementById('previewWhatsapp');
+  const previewPhotos       = document.getElementById('previewPhotos');
+  const publishError        = document.getElementById('publishError');
+  const publishErrorText    = document.getElementById('publishErrorText');
+  const createAnotherBtn    = document.getElementById('createAnotherBtn');
 
 
   /* ==========================================================
-     3. MODE DETECTION
+     STEP NAVIGATION
   ========================================================== */
 
-  const params = new URLSearchParams(window.location.search);
-  const editId = params.get('edit');
+  const STEPS    = [step1, step2, step3];
+  const TOTAL    = 3;
+  const PROGRESS = [0, 33, 66, 100]; // % fill per step
 
-  if (editId) {
-    S.mode      = 'edit';
-    S.listingId = editId;
-    if (pageTitle) pageTitle.textContent = 'Edit Listing';
-    if (submitBtn) submitBtn.textContent = 'Save Changes';
-    if (deleteBtn) deleteBtn.removeAttribute('hidden');
-  }
+  function goToStep(n) {
+    S.step = n;
 
-
-  /* ==========================================================
-     4. FORM FIELD COLLECTION
-  ========================================================== */
-
-  function collectFields() {
-    return {
-      title:        titleInput?.value.trim()     || '',
-      description:  descInput?.value.trim()      || '',
-      category:     categoryInput?.value         || '',
-      listing_type: typeInput?.value             || 'product',
-      price:        priceInput?.value            || null,
-      negotiable:   negCheckbox?.checked         || false,
-      condition:    conditionInput?.value        || null,
-      location:     locationInput?.value.trim()  || '',
-      _existingImages: S.existingImages,
-    };
-  }
-
-
-  /* ==========================================================
-     5. IMAGE MANAGEMENT
-  ========================================================== */
-
-  function renderImagePreviews() {
-    if (!imagePreview) return;
-    imagePreview.innerHTML = '';
-
-    // Existing images
-    S.existingImages.forEach((url, i) => {
-      const wrap = document.createElement('div');
-      wrap.className = 'img-preview-wrap';
-      wrap.innerHTML = `
-        <img src="${esc(url)}" alt="Listing image ${i + 1}" loading="lazy"
-             class="img-preview" />
-        <button type="button" class="img-preview__remove"
-                data-existing="${esc(url)}" aria-label="Remove image">
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-      `;
-      wrap.querySelector('.img-preview__remove').addEventListener('click', () => {
-        S.existingImages    = S.existingImages.filter(u => u !== url);
-        S.removedImageUrls  = [...S.removedImageUrls, url];
-        renderImagePreviews();
-      });
-      imagePreview.appendChild(wrap);
+    // Show / hide steps
+    STEPS.forEach((el, i) => {
+      if (!el) return;
+      if (i + 1 === n) {
+        el.removeAttribute('hidden');
+        el.classList.add('sell-step--active');
+      } else {
+        el.setAttribute('hidden', '');
+        el.classList.remove('sell-step--active');
+      }
     });
 
-    // New files queued for upload
-    S.newImageFiles.forEach((file, i) => {
-      const url  = URL.createObjectURL(file);
-      const wrap = document.createElement('div');
-      wrap.className = 'img-preview-wrap';
-      wrap.innerHTML = `
-        <img src="${url}" alt="New image ${i + 1}" class="img-preview" />
-        <button type="button" class="img-preview__remove"
-                data-new="${i}" aria-label="Remove image">
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-      `;
-      wrap.querySelector('.img-preview__remove').addEventListener('click', () => {
-        S.newImageFiles.splice(i, 1);
-        renderImagePreviews();
-      });
-      imagePreview.appendChild(wrap);
-    });
-  }
-
-  imageInput?.addEventListener('change', (e) => {
-    const files  = Array.from(e.target.files || []);
-    const total  = S.existingImages.length + S.newImageFiles.length + files.length;
-    const allowed = 8 - S.existingImages.length - S.newImageFiles.length;
-
-    const valid = files.slice(0, allowed).filter(f => f.size <= 5 * 1024 * 1024);
-    if (valid.length < files.length) {
-      showAlert('Some images were skipped (max 5 MB each, max 8 total).');
+    // Topbar
+    if (topbarBack) {
+      if (n > 1) topbarBack.removeAttribute('hidden');
+      else topbarBack.setAttribute('hidden', '');
     }
 
-    S.newImageFiles = [...S.newImageFiles, ...valid];
-    renderImagePreviews();
-    e.target.value = ''; // allow re-selecting same file
+    const titles = ['Create', 'Details', 'Preview'];
+    if (topbarTitle) topbarTitle.textContent = titles[n - 1] || 'Create';
+
+    if (topbarStepBadge && topbarStepText) {
+      if (n > 1) {
+        topbarStepBadge.removeAttribute('hidden');
+        topbarStepText.textContent = `Step ${n} of ${TOTAL}`;
+      } else {
+        topbarStepBadge.setAttribute('hidden', '');
+      }
+    }
+
+    // Progress bar
+    if (sellProgress && progressFill) {
+      if (n > 1) {
+        sellProgress.removeAttribute('hidden');
+        progressFill.style.width = PROGRESS[n] + '%';
+      } else {
+        sellProgress.setAttribute('hidden', '');
+      }
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Topbar back button
+  topbarBack?.addEventListener('click', () => {
+    if (S.step > 1) goToStep(S.step - 1);
   });
 
 
   /* ==========================================================
-     6. VALIDATION
+     STEP 1 — TYPE SELECTION
   ========================================================== */
 
-  function validate(fields) {
-    if (!fields.title) {
-      showAlert('Please add a title for your listing.');
-      titleInput?.focus();
+  // Type card selection
+  typeCards.forEach(card => {
+    card.addEventListener('click', () => {
+      // Deselect all
+      typeCards.forEach(c => {
+        c.classList.remove('type-card--selected');
+        c.setAttribute('aria-checked', 'false');
+      });
+
+      // Select this one
+      card.classList.add('type-card--selected');
+      card.setAttribute('aria-checked', 'true');
+      S.listingType = card.dataset.type;
+
+      // Hide error if shown
+      if (typeError) typeError.setAttribute('hidden', '');
+    });
+  });
+
+  // Step 1 → Step 2
+  step1Next?.addEventListener('click', () => {
+    if (!S.listingType) {
+      if (typeError) typeError.removeAttribute('hidden');
+      return;
+    }
+
+    // Update step 2 heading based on type
+    if (step2Eyebrow) {
+      const labels = {
+        product: 'Product details',
+        service: 'Service details',
+        request: 'Request details',
+      };
+      step2Eyebrow.textContent = labels[S.listingType] || 'Details';
+    }
+
+    goToStep(2);
+  });
+
+
+  /* ==========================================================
+     STEP 2 — DETAILS
+  ========================================================== */
+
+  /* ---- Populate category dropdown ---- */
+  async function loadCategories() {
+    if (!postCategory) return;
+
+    // Keep the placeholder option
+    postCategory.innerHTML = '<option value="" disabled selected>Select a category</option>';
+
+    let categories = STATIC_CATEGORIES;
+
+    /*
+     FUTURE: Load from Supabase categories table:
+       const { data } = await window._supabase
+         .from('categories')
+         .select('name')
+         .order('name');
+       if (data && data.length > 0) {
+         categories = data.map(c => c.name);
+       }
+    */
+
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value       = cat;
+      opt.textContent = cat;
+      postCategory.appendChild(opt);
+    });
+  }
+
+  /* ---- Character counters ---- */
+  postTitle?.addEventListener('input', () => {
+    const len = postTitle.value.length;
+    if (titleCharCount) titleCharCount.textContent = `${len} / 120`;
+    S.title = postTitle.value.trim();
+    hideStep2Alert();
+  });
+
+  postDescription?.addEventListener('input', () => {
+    const len = postDescription.value.length;
+    if (descCharCount) descCharCount.textContent = `${len} / 2000`;
+    hideStep2Alert();
+  });
+
+  /* ---- Tags ---- */
+  const MAX_TAGS = 10;
+
+  function addTag(value) {
+    const tag = value.trim().replace(/,+$/, '').trim();
+    if (!tag || S.tags.includes(tag) || S.tags.length >= MAX_TAGS) return;
+    S.tags.push(tag);
+    renderTags();
+  }
+
+  function renderTags() {
+    if (!tagsDisplay) return;
+    tagsDisplay.innerHTML = '';
+    S.tags.forEach((tag, i) => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.innerHTML = `
+        ${esc(tag)}
+        <button type="button" aria-label="Remove tag ${esc(tag)}">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      `;
+      chip.querySelector('button').addEventListener('click', () => {
+        S.tags.splice(i, 1);
+        renderTags();
+      });
+      tagsDisplay.appendChild(chip);
+    });
+  }
+
+  tagInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(tagInput.value);
+      tagInput.value = '';
+    }
+  });
+
+  tagInput?.addEventListener('blur', () => {
+    if (tagInput.value.trim()) {
+      addTag(tagInput.value);
+      tagInput.value = '';
+    }
+  });
+
+  /* ---- Photo grid ---- */
+  const MAX_PHOTOS = 5;
+
+  function buildPhotoGrid() {
+    if (!photoGrid) return;
+    photoGrid.innerHTML = '';
+
+    // Filled slots
+    S.photos.forEach((file, i) => {
+      const url  = URL.createObjectURL(file);
+      const slot = document.createElement('div');
+      slot.className = 'photo-slot photo-slot--filled';
+      slot.innerHTML = `
+        <img src="${url}" alt="Photo ${i + 1}" class="photo-slot__img" />
+        <button type="button" class="photo-slot__remove" aria-label="Remove photo ${i + 1}">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      `;
+      slot.querySelector('.photo-slot__remove').addEventListener('click', () => {
+        S.photos.splice(i, 1);
+        buildPhotoGrid();
+      });
+      photoGrid.appendChild(slot);
+    });
+
+    // Add slot (if under limit)
+    if (S.photos.length < MAX_PHOTOS) {
+      const addSlot = document.createElement('label');
+      addSlot.className = 'photo-slot photo-slot--add';
+      addSlot.setAttribute('aria-label', 'Add photo');
+      addSlot.innerHTML = `
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        <span>Add photo</span>
+        <input type="file" accept="image/jpeg,image/png,image/webp"
+               class="photo-slot__input" multiple aria-hidden="true" />
+      `;
+      addSlot.querySelector('input').addEventListener('change', e => {
+        const files   = Array.from(e.target.files || []);
+        const allowed = MAX_PHOTOS - S.photos.length;
+        const valid   = files.slice(0, allowed).filter(f => f.size <= 10 * 1024 * 1024);
+        S.photos = [...S.photos, ...valid];
+        buildPhotoGrid();
+        e.target.value = '';
+      });
+      photoGrid.appendChild(addSlot);
+    }
+  }
+
+  /* ---- Location ---- */
+  useLocationBtn?.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      if (locationStatus) {
+        locationStatus.textContent = 'Location not supported by your browser.';
+        locationStatus.removeAttribute('hidden');
+      }
+      return;
+    }
+
+    if (locationStatus) {
+      locationStatus.textContent = 'Getting your location…';
+      locationStatus.removeAttribute('hidden');
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude, longitude } = pos.coords;
+        S.location = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        if (locationManual) locationManual.value = 'Current location detected';
+        if (locationStatus) {
+          locationStatus.textContent = '✓ Location set';
+        }
+      },
+      () => {
+        if (locationStatus) {
+          locationStatus.textContent = 'Could not detect location. Enter it manually.';
+        }
+      }
+    );
+  });
+
+  locationManual?.addEventListener('input', () => {
+    S.location = locationManual.value.trim();
+  });
+
+  /* ---- Price type chips ---- */
+  const priceChips = document.querySelectorAll('.price-chip');
+
+  priceChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+      chip.setAttribute('aria-checked', 'true');
+      S.priceType = chip.dataset.price;
+
+      // Show amount input only for fixed price
+      if (priceAmountWrap) {
+        priceAmountWrap.hidden = S.priceType !== 'fixed';
+      }
+      hideStep2Alert();
+    });
+  });
+
+  priceAmount?.addEventListener('input', () => {
+    S.priceAmount = parseFloat(priceAmount.value) || null;
+  });
+
+  /* ---- Availability chips ---- */
+  const statusChips = document.querySelectorAll('.status-chip');
+
+  statusChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      statusChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+      chip.setAttribute('aria-checked', 'true');
+      S.availability = chip.dataset.status;
+    });
+  });
+
+  /* ---- Step 2 alert helpers ---- */
+  function showStep2Alert(msg) {
+    if (!step2Alert || !step2AlertText) return;
+    step2AlertText.textContent = msg;
+    step2Alert.removeAttribute('hidden');
+    step2Alert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function hideStep2Alert() {
+    step2Alert?.setAttribute('hidden', '');
+  }
+
+  /* ---- Step 2 validation ---- */
+  function validateStep2() {
+    const title = postTitle?.value.trim() || '';
+    const cat   = postCategory?.value    || '';
+    const desc  = postDescription?.value.trim() || '';
+
+    if (!title) {
+      showStep2Alert('Please add a title for your listing.');
+      postTitle?.focus();
       return false;
     }
-    if (fields.title.length < 3) {
-      showAlert('Title must be at least 3 characters.');
-      titleInput?.focus();
+    if (title.length < 3) {
+      showStep2Alert('Title must be at least 3 characters.');
+      postTitle?.focus();
       return false;
     }
-    if (!fields.listing_type) {
-      showAlert('Please select a listing type.');
+    if (!cat) {
+      showStep2Alert('Please select a category.');
+      postCategory?.focus();
       return false;
     }
-    if (!fields.category) {
-      showAlert('Please select a category.');
+    if (!desc) {
+      showStep2Alert('Please add a description.');
+      postDescription?.focus();
+      return false;
+    }
+    if (!S.priceType) {
+      showStep2Alert('Please select a price type.');
+      priceTypeGroup?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return false;
+    }
+    if (S.priceType === 'fixed' && !S.priceAmount) {
+      showStep2Alert('Please enter a price amount.');
+      priceAmount?.focus();
       return false;
     }
     return true;
   }
 
+  /* ---- Step 2 Back ---- */
+  step2Back?.addEventListener('click', () => goToStep(1));
+
+  /* ---- Step 2 Next → Preview ---- */
+  step2Next?.addEventListener('click', () => {
+    hideStep2Alert();
+
+    // Collect current field values into state
+    S.title       = postTitle?.value.trim()       || '';
+    S.category    = postCategory?.value           || '';
+    S.description = postDescription?.value.trim() || '';
+    S.location    = locationManual?.value.trim()  || S.location;
+
+    if (!validateStep2()) return;
+
+    buildPreview();
+    goToStep(3);
+  });
+
 
   /* ==========================================================
-     7. LOAD EXISTING LISTING (edit mode)
+     STEP 3 — PREVIEW + PUBLISH
   ========================================================== */
 
-  async function loadExistingListing() {
-    if (!S.listingId) return;
-
-    const { data: listing, error } = await JARAListings.fetchOne(S.listingId);
-
-    if (error || !listing) {
-      showAlert('Could not load this listing. Please try again.');
-      return;
+  function buildPreview() {
+    /* ---- Photos ---- */
+    if (previewPhotos) {
+      if (S.photos.length > 0) {
+        previewPhotos.innerHTML = '';
+        const img = document.createElement('img');
+        img.src       = URL.createObjectURL(S.photos[0]);
+        img.alt       = 'Listing photo';
+        img.className = 'preview-card__photo';
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:16px 16px 0 0';
+        previewPhotos.appendChild(img);
+      } else {
+        previewPhotos.innerHTML = `
+          <div class="preview-card__photo-placeholder" aria-hidden="true">
+            <i class="fa-solid fa-image"></i>
+          </div>`;
+      }
     }
 
-    // Security check — only owner can edit
-    const owned = await JARAListings.isOwner(listing);
-    if (!owned) {
-      window.location.replace('../explore/index.html');
-      return;
+    /* ---- Badges ---- */
+    if (previewTypeBadge) {
+      const labels = { product: 'Product', service: 'Service', request: 'Request' };
+      previewTypeBadge.textContent = labels[S.listingType] || S.listingType;
+    }
+    if (previewStatusBadge) {
+      const labels = {
+        available: 'Available', busy: 'Busy',
+        out_of_stock: 'Out of Stock', coming_soon: 'Coming Soon',
+      };
+      previewStatusBadge.textContent = labels[S.availability] || S.availability;
     }
 
-    S.existingListing = listing;
-    S.existingImages  = listing.images || [];
+    /* ---- Content ---- */
+    if (previewTitle)       previewTitle.textContent       = S.title       || 'Your title';
+    if (previewDescription) previewDescription.textContent = S.description || 'Your description';
 
-    // Fill form
-    if (titleInput)     titleInput.value     = listing.title        || '';
-    if (descInput)      descInput.value      = listing.description  || '';
-    if (categoryInput)  categoryInput.value  = listing.category     || '';
-    if (typeInput)      typeInput.value      = listing.listing_type || 'product';
-    if (priceInput)     priceInput.value     = listing.price        || '';
-    if (negCheckbox)    negCheckbox.checked  = listing.negotiable   || false;
-    if (conditionInput) conditionInput.value = listing.condition    || '';
-    if (locationInput)  locationInput.value  = listing.location     || '';
+    /* ---- Price ---- */
+    if (previewPrice) {
+      if (S.priceType === 'fixed' && S.priceAmount) {
+        previewPrice.textContent = '₦' + Number(S.priceAmount).toLocaleString('en-NG');
+      } else if (S.priceType === 'free') {
+        previewPrice.textContent = 'Free';
+      } else if (S.priceType === 'negotiable') {
+        previewPrice.textContent = 'Negotiable';
+      } else if (S.priceType === 'contact') {
+        previewPrice.textContent = 'Contact for price';
+      } else if (S.priceType === 'quote') {
+        previewPrice.textContent = 'Request a quote';
+      } else {
+        previewPrice.textContent = '—';
+      }
+    }
 
-    renderImagePreviews();
+    /* ---- Location ---- */
+    if (previewLocationText) {
+      previewLocationText.textContent = S.location || 'Location not set';
+    }
+
+    /* ---- Tags ---- */
+    if (previewTags) {
+      if (S.tags.length > 0) {
+        previewTags.innerHTML = S.tags
+          .map(t => `<span class="preview-tag">#${esc(t)}</span>`)
+          .join('');
+        previewTags.removeAttribute('hidden');
+      } else {
+        previewTags.setAttribute('hidden', '');
+      }
+    }
+
+    /* ---- Seller info from profile ---- */
+    if (S.profile) {
+      const name = JARAProfile.getDisplayName(S.profile) || 'You';
+      if (previewSellerName) previewSellerName.textContent = name;
+      if (previewAvatar)     previewAvatar.textContent     = JARAProfile.getInitials(S.profile);
+      if (previewSellerType) {
+        previewSellerType.textContent =
+          S.profile.account_type
+            ? S.profile.account_type.charAt(0).toUpperCase() + S.profile.account_type.slice(1)
+            : 'Member';
+      }
+      if (previewWhatsapp && S.profile.whatsapp) {
+        const num = S.profile.whatsapp.replace(/\D/g, '');
+        previewWhatsapp.href = `https://wa.me/${num}`;
+      }
+                   }
+                     
+    /* ---- Wire up publish button ---- */
+    // Remove any previous listener by replacing the element
+    const oldPublishBtn = document.getElementById('publishBtn');
+    if (oldPublishBtn) {
+      const newPublishBtn = oldPublishBtn.cloneNode(true);
+      oldPublishBtn.parentNode.replaceChild(newPublishBtn, oldPublishBtn);
+      newPublishBtn.addEventListener('click', handlePublish);
+    } else {
+      // Build a publish button if it doesn't exist yet
+      const successActions = document.querySelector('.success-actions');
+      if (successActions) {
+        // Replace the dashboard link with a real publish button
+        const publishBtn = document.createElement('button');
+        publishBtn.type      = 'button';
+        publishBtn.id        = 'publishBtn';
+        publishBtn.className = 'btn-primary btn-primary--full';
+        publishBtn.innerHTML = `
+          <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+          Publish Listing
+        `;
+        publishBtn.addEventListener('click', handlePublish);
+        successActions.insertBefore(publishBtn, successActions.firstChild);
+
+        // Remove the broken dashboard link
+        const dashLink = successActions.querySelector('a[href*="dashboard"]');
+        dashLink?.remove();
+      }
+    }
+
+    /* ---- Create another button ---- */
+    createAnotherBtn?.addEventListener('click', () => {
+      resetWizard();
+      goToStep(1);
+    });
   }
 
+  /* ---- Publish to Supabase ---- */
+  async function handlePublish() {
+    if (S.isLoading) return;
+    S.isLoading = true;
 
-  /* ==========================================================
-     8. FORM SUBMIT
-  ========================================================== */
+    const publishBtn = document.getElementById('publishBtn');
+    if (publishBtn) {
+      publishBtn.disabled    = true;
+      publishBtn.textContent = 'Publishing…';
+    }
 
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    hideAlert();
-
-    const fields = collectFields();
-    if (!validate(fields)) return;
-
-    setLoading(true);
+    if (publishError) publishError.setAttribute('hidden', '');
 
     try {
-      let result;
+      const fields = {
+        title:        S.title,
+        description:  S.description,
+        category:     S.category,
+        listing_type: S.listingType,
+        price:        S.priceType === 'fixed' ? S.priceAmount : null,
+        negotiable:   S.priceType === 'negotiable',
+        condition:    null,
+        location:     S.location,
+        _existingImages: [],
+      };
 
-      if (S.mode === 'create') {
-        result = await JARAListings.create(fields, S.newImageFiles);
-      } else {
-        result = await JARAListings.update(
-          S.listingId,
-          fields,
-          S.newImageFiles,
-          S.removedImageUrls
-        );
-      }
+      const { data, error } = await JARAListings.create(fields, S.photos);
 
-      if (result.error) {
-        showAlert('Failed to save listing: ' + result.error.message);
-        setLoading(false);
+      if (error) {
+        if (publishErrorText) publishErrorText.textContent = 'Failed to publish: ' + (error.message || 'Please try again.');
+        if (publishError)     publishError.removeAttribute('hidden');
+        if (publishBtn) {
+          publishBtn.disabled    = false;
+          publishBtn.innerHTML = `<i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Publish Listing`;
+        }
+        S.isLoading = false;
         return;
       }
 
-      // Success — redirect to the new/updated listing
-      const listingId = result.data?.id || S.listingId;
-      window.location.replace(`../listing/index.html?id=${listingId}`);
+      // Success — go to the new listing
+      const listingId = data?.id;
+      if (listingId) {
+        window.location.replace(`../listing/index.html?id=${listingId}`);
+      } else {
+        window.location.replace('../explore/index.html');
+      }
 
     } catch (err) {
-      console.error('sell.js submit error:', err.message);
-      showAlert('An unexpected error occurred. Please try again.');
-      setLoading(false);
+      console.error('Publish error:', err.message);
+      if (publishErrorText) publishErrorText.textContent = 'An unexpected error occurred. Please try again.';
+      if (publishError)     publishError.removeAttribute('hidden');
+      if (publishBtn) {
+        publishBtn.disabled    = false;
+        publishBtn.innerHTML = `<i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Publish Listing`;
+      }
+      S.isLoading = false;
     }
-  });
+  }
 
 
   /* ==========================================================
-     9. DELETE LISTING
+     RESET WIZARD
   ========================================================== */
 
-  deleteBtn?.addEventListener('click', async () => {
-    if (!S.listingId) return;
+  function resetWizard() {
+    S.listingType  = null;
+    S.title        = '';
+    S.category     = '';
+    S.description  = '';
+    S.tags         = [];
+    S.photos       = [];
+    S.location     = '';
+    S.priceType    = null;
+    S.priceAmount  = null;
+    S.availability = 'available';
+    S.isLoading    = false;
 
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this listing? This cannot be undone.'
-    );
-    if (!confirmed) return;
+    // Reset type cards
+    typeCards.forEach(c => {
+      c.classList.remove('type-card--selected');
+      c.setAttribute('aria-checked', 'false');
+    });
 
-    deleteBtn.disabled    = true;
-    deleteBtn.textContent = 'Deleting…';
+    // Reset form fields
+    if (postTitle)       postTitle.value       = '';
+    if (postCategory)    postCategory.value    = '';
+    if (postDescription) postDescription.value = '';
+    if (locationManual)  locationManual.value  = '';
+    if (priceAmount)     priceAmount.value     = '';
+    if (priceAmountWrap) priceAmountWrap.hidden = true;
 
-    const { error } = await JARAListings.remove(S.listingId);
+    // Reset chips
+    priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+    statusChips.forEach((c, i) => c.setAttribute('aria-checked', i === 0 ? 'true' : 'false'));
 
-    if (error) {
-      showAlert('Failed to delete listing: ' + error.message);
-      deleteBtn.disabled    = false;
-      deleteBtn.textContent = 'Delete Listing';
-      return;
-    }
+    // Reset tags and photos
+    renderTags();
+    buildPhotoGrid();
 
-    // Redirect to own store after deletion
-    window.location.replace('../store/index.html');
-  });
+    // Hide errors
+    if (typeError)   typeError.setAttribute('hidden', '');
+    hideStep2Alert();
+  }
 
 
   /* ==========================================================
-     10. HELPERS + INIT
+     UTILITIES
   ========================================================== */
-
-  function showAlert(msg) {
-    if (!alertEl || !alertText) return;
-    alertText.textContent = msg;
-    alertEl.removeAttribute('hidden');
-    alertEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-
-  function hideAlert() {
-    alertEl?.setAttribute('hidden', '');
-  }
-
-  function setLoading(on) {
-    if (!submitBtn) return;
-    submitBtn.disabled = on;
-    submitBtn.setAttribute('aria-busy', String(on));
-    submitBtn.classList.toggle('is-loading', on);
-  }
 
   function esc(str) {
     if (!str && str !== 0) return '';
@@ -335,12 +750,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     return d.innerHTML;
   }
 
+
+  /* ==========================================================
+     INIT
+  ========================================================== */
+
   async function init() {
+    // Load profile for preview seller info
     S.profile = await JARAProfile.load();
 
-    if (S.mode === 'edit') {
-      await loadExistingListing();
-    }
+    // Populate categories
+    await loadCategories();
+
+    // Build empty photo grid
+    buildPhotoGrid();
+
+    // Start on step 1
+    goToStep(1);
   }
 
   init();
