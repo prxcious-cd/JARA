@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       images.forEach((_, i) => {
         const dot = document.createElement('span');
-        dot.className = `gallery__dot${i === 0 ? ' gallery__dot--active' : ''}`;
+        dot.className = `gallery-dot${i === 0 ? ' is-active' : ''}`;
         dot.setAttribute('aria-label', `Image ${i + 1}`);
         galleryDots.appendChild(dot);
       });
@@ -306,8 +306,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       galleryTrack.style.transform = `translateX(-${current * 100}%)`;
 
       // Update dots
-      galleryDots?.querySelectorAll('.gallery__dot').forEach((dot, i) => {
-        dot.classList.toggle('gallery__dot--active', i === current);
+      galleryDots?.querySelectorAll('.gallery-dot').forEach((dot, i) => {
+        dot.classList.toggle('is-active', i === current);
       });
     }
 
