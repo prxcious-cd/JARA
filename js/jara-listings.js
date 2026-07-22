@@ -44,7 +44,7 @@
    Columns selected on every listing fetch.
    Joined with owner profile for display.
   */
-  const LISTING_SELECT = `
+const LISTING_SELECT = `
     id,
     owner_id,
     title,
@@ -68,6 +68,8 @@
       avatar_url,
       account_type,
       school,
+      phone,
+      whatsapp,
       is_verified,
       is_founding_member,
       is_premium,
