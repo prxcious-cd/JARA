@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const price = JARAListings.formatPrice(listing);
 
       const card = document.createElement('a');
-      card.className = 'store-listing-card j-card';
+      card.className = 'store-card j-card';
       card.href      = `../listing/index.html?id=${esc(listing.id)}`;
       card.setAttribute('role', 'listitem');
       card.setAttribute('aria-label', listing.title);
@@ -428,8 +428,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           <p class="store-listing-card__title">${esc(listing.title)}</p>
           <p class="store-listing-card__price">${esc(price)}</p>
         </div>
-        ${S.isOwner
-          ? `<a class="store-listing-card__edit"
+${S.isOwner
+          ? `<a class="store-card__edit"
                 href="../sell/index.html?edit=${esc(listing.id)}"
                 aria-label="Edit listing"
                 onclick="event.stopPropagation()">
