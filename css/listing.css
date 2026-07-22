@@ -266,7 +266,7 @@ button  { font-family: inherit; border: none; background: none; cursor: pointer;
 .gallery {
   position: relative;
   width: 100%;
-  height: var(--gallery-height);
+  height: clamp(280px, 56vw, 480px);
   background: var(--color-surface-2);
   overflow: hidden;
   touch-action: pan-y;
