@@ -87,7 +87,7 @@ const LISTING_SELECT = `
    * Returns an array of public URLs.
    * Skips files that are already URLs (existing images).
    */
-  async function uploadImages(listingId, files) {
+  async function uploadImages(listingId, files, userId) {
     const sb  = _client();
     const urls = [];
 
@@ -108,7 +108,7 @@ const LISTING_SELECT = `
       }
 
       const ext      = file.name.split('.').pop().toLowerCase();
-      const path     = `${listingId}/${Date.now()}_${i}.${ext}`;
+      const path     = `${userId}/${listingId}_${Date.now()}_${i}.${ext}`;
 
       const { error: uploadError } = await sb.storage
         .from(STORAGE_BUCKET)
@@ -327,8 +327,7 @@ const LISTING_SELECT = `
         : `${ownerId}_${Date.now()}`;
 
       // ── Upload images ─────────────────────────────────────
-      const imageUrls = await uploadImages(tempId, imageFiles.slice(0, MAX_IMAGES));
-
+      const imageUrls = await uploadImages(tempId, imageFiles.slice(0, MAX_IMAGES), ownerId);
       // ── Build payload ─────────────────────────────────────
       const payload = {
         owner_id:     ownerId,
@@ -394,8 +393,7 @@ const LISTING_SELECT = `
       }
 
       // ── Upload new images ─────────────────────────────────
-      const newUrls = await uploadImages(id, newImageFiles.slice(0, MAX_IMAGES));
-
+      const newUrls = await uploadImages(id, newImageFiles.slice(0, MAX_IMAGES), userId);
       // ── Merge image arrays ────────────────────────────────
       // Start from existing, remove deleted, add new
       let existingImages = fields._existingImages || [];
