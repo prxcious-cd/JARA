@@ -245,55 +245,106 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     galleryTrack.innerHTML = '';
 
+    // Hide dots by default
+    if (galleryDots) galleryDots.innerHTML = '';
+
     if (!images || images.length === 0) {
-      // No images — show placeholder
-      const placeholder = document.createElement('div');
-      placeholder.className   = 'gallery__slide';
-      placeholder.setAttribute('role', 'listitem');
-      placeholder.innerHTML = `
-        <div class="gallery__img-placeholder" aria-hidden="true">
-          <i class="fa-solid fa-image"></i>
-        </div>`;
-      galleryTrack.appendChild(placeholder);
+      const slide = document.createElement('div');
+      slide.className = 'gallery-slide gallery-slide--placeholder';
+      slide.setAttribute('role', 'listitem');
+      slide.innerHTML = `<i class="fa-solid fa-image" aria-hidden="true"></i>`;
+      galleryTrack.appendChild(slide);
       return;
     }
 
-    // Build slides
+    // Build one slide per image
     images.forEach((url, i) => {
       const slide = document.createElement('div');
-      slide.className = 'gallery__slide';
+      slide.className = 'gallery-slide';
       slide.setAttribute('role', 'listitem');
-      slide.innerHTML = `
-        <img
-          class="gallery__img"
-          src="${esc(url)}"
-          alt="Listing image ${i + 1}"
-          loading="${i === 0 ? 'eager' : 'lazy'}"
-        />`;
+
+      const img = document.createElement('img');
+      img.src     = url;
+      img.alt     = `Listing image ${i + 1}`;
+      img.loading = i === 0 ? 'eager' : 'lazy';
+
+      // Fade in when loaded
+      img.addEventListener('load', () => img.classList.add('is-loaded'));
+      if (img.complete) img.classList.add('is-loaded');
+
+      slide.appendChild(img);
       galleryTrack.appendChild(slide);
     });
 
-    // Build dots if more than one image
+    // Build dot indicators
     if (galleryDots && images.length > 1) {
       galleryDots.innerHTML = '';
+      galleryDots.removeAttribute('hidden');
+
       images.forEach((_, i) => {
         const dot = document.createElement('span');
         dot.className = `gallery__dot${i === 0 ? ' gallery__dot--active' : ''}`;
         dot.setAttribute('aria-label', `Image ${i + 1}`);
         galleryDots.appendChild(dot);
       });
-      galleryDots.removeAttribute('hidden');
-
-      // Update active dot on scroll
-      galleryTrack.addEventListener('scroll', () => {
-        const slideWidth = galleryTrack.offsetWidth;
-        const index      = Math.round(galleryTrack.scrollLeft / slideWidth);
-        galleryDots.querySelectorAll('.gallery__dot').forEach((dot, i) => {
-          dot.classList.toggle('gallery__dot--active', i === index);
-        });
-      }, { passive: true });
     }
+
+    // Wire up swipe
+    initGallerySwipe(images.length);
   }
+
+  /* ---- Gallery swipe controller ---- */
+  function initGallerySwipe(total) {
+    if (!galleryTrack || total <= 1) return;
+
+    let current   = 0;
+    let startX    = 0;
+    let isDragging = false;
+
+    function goToSlide(index) {
+      current = Math.max(0, Math.min(index, total - 1));
+      galleryTrack.style.transform = `translateX(-${current * 100}%)`;
+
+      // Update dots
+      galleryDots?.querySelectorAll('.gallery__dot').forEach((dot, i) => {
+        dot.classList.toggle('gallery__dot--active', i === current);
+      });
+    }
+
+    // Touch events
+    galleryTrack.addEventListener('touchstart', e => {
+      startX     = e.touches[0].clientX;
+      isDragging = true;
+    }, { passive: true });
+
+    galleryTrack.addEventListener('touchend', e => {
+      if (!isDragging) return;
+      isDragging = false;
+      const diff = startX - e.changedTouches[0].clientX;
+      if (Math.abs(diff) > 50) {
+        goToSlide(diff > 0 ? current + 1 : current - 1);
+      }
+    }, { passive: true });
+
+    // Mouse events (desktop)
+    galleryTrack.addEventListener('mousedown', e => {
+      startX     = e.clientX;
+      isDragging = true;
+    });
+
+    galleryTrack.addEventListener('mouseup', e => {
+      if (!isDragging) return;
+      isDragging = false;
+      const diff = startX - e.clientX;
+      if (Math.abs(diff) > 50) {
+        goToSlide(diff > 0 ? current + 1 : current - 1);
+      }
+    });
+
+    galleryTrack.addEventListener('mouseleave', () => {
+      isDragging = false;
+    });
+                                  }
 
 
   /* ==========================================================
