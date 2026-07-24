@@ -411,24 +411,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       card.setAttribute('aria-label', listing.title);
 
       card.innerHTML = `
-        <div class="store-listing-card__img-wrap">
+        <div class="store-card__image">
           ${cover
-            ? `<img
-                 class="store-listing-card__img"
-                 src="${esc(cover)}"
-                 alt="${esc(listing.title)}"
-                 loading="lazy"
-               />`
-            : `<div class="store-listing-card__img-placeholder" aria-hidden="true">
-                 <i class="fa-solid fa-image"></i>
-               </div>`
+            ? `<img src="${esc(cover)}" alt="${esc(listing.title)}" loading="lazy" />`
+            : `<i class="fa-solid fa-image" aria-hidden="true"></i>`
           }
+          <span class="store-card__dot store-card__dot--active"></span>
         </div>
-        <div class="store-listing-card__body">
-          <p class="store-listing-card__title">${esc(listing.title)}</p>
-          <p class="store-listing-card__price">${esc(price)}</p>
+        <div class="store-card__body">
+          <p class="store-card__title">${esc(listing.title)}</p>
+          <p class="store-card__price">${esc(price)}</p>
+          <p class="store-card__views">
+            <i class="fa-solid fa-eye" aria-hidden="true"></i>
+            ${listing.view_count || 0}
+          </p>
         </div>
-${S.isOwner
+        ${S.isOwner
           ? `<a class="store-card__edit"
                 href="../sell/index.html?edit=${esc(listing.id)}"
                 aria-label="Edit listing"
