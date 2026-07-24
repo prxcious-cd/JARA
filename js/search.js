@@ -1,151 +1,188 @@
 /* ============================================================
-   JARA ∆ — Search & Filter Engine  (v1)
+   JARA ∆ — Search Page  (Supabase-integrated)
    js/search.js
 
-   Connects the existing search UI to Supabase.
-   Replaces all placeholder/demo search results with
-   real data from the listings table.
+   Drives the three-panel search experience in search/index.html:
+     Panel 1 — #srDefault  (before typing: recent, popular, categories)
+     Panel 2 — #srResults  (results grid)
+     Panel 3 — #srEmpty    (no results)
+
+   All IDs verified against search/index.html.
 
    Depends on:
      - window._supabase    (supabase-client.js)
      - window.JARAAuth     (auth-guard.js)
      - window.JARAProfile  (jara-profile.js)
      - window.JARAListings (jara-listings.js)
-
-   TABLE OF CONTENTS
-   1.  State
-   2.  DOM refs
-   3.  Debounce helper
-   4.  Build Supabase query
-   5.  Execute search
-   6.  Render results
-   7.  Result card builder
-   8.  Loading state
-   9.  Empty state
-   10. Error state
-   11. Filter listeners
-   12. Search input listener
-   13. Clear filters
-   14. URL sync (persist state across page loads)
-   15. Init
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', async () => {
 
   /* ==========================================================
-     1. STATE
-     Single source of truth for every active filter value.
-     Every search re-reads from here.
+     STATE
   ========================================================== */
 
   const S = {
-    query:        '',
-    type:         null,     // 'product' | 'service' | 'request' | null
-    category:     null,
-    school:       null,
-    condition:    null,     // 'new' | 'used' | null
-    priceMin:     null,
-    priceMax:     null,
-    sortBy:       'created_at',   // 'created_at' | 'price'
-    sortAsc:      false,          // false = newest / highest price first
-    limit:        20,
-    offset:       0,
-    total:        0,
-    loading:      false,
-    hasSearched:  false,
+    query:       '',
+    filter:      'all',    // 'all' | 'product' | 'service' | 'request' | 'business'
+    priceMin:    null,
+    priceMax:    null,
+    results:     [],
+    loading:     false,
+    hasSearched: false,
   };
 
+  const POPULAR_SEARCHES = [
+    'Generator', 'Laundry', 'Haircut', 'Tutoring',
+    'Printing', 'Food', 'Laptop', 'Phone repair',
+  ];
 
   /* ==========================================================
-     2. DOM REFS
-     Match IDs/classes already in search/index.html.
-     All names are read-only — nothing is renamed or moved.
+     DOM REFS — every ID verified against search/index.html
   ========================================================== */
 
-  const searchInput     = document.getElementById('searchInput')     ||
-                          document.getElementById('mainSearchInput') ||
-                          document.querySelector('[data-search-input]');
-
-  const resultsGrid     = document.getElementById('searchResults')   ||
-                          document.getElementById('resultsGrid')     ||
-                          document.querySelector('[data-results-grid]');
-
-  const resultsCount    = document.getElementById('searchCount')     ||
-                          document.getElementById('resultsCount')    ||
-                          document.querySelector('[data-results-count]');
-
-  const loadingSpinner  = document.getElementById('searchSpinner')   ||
-                          document.querySelector('[data-search-spinner]');
-
-  const loadMoreBtn     = document.getElementById('loadMoreBtn');
-  const loadMoreWrap    = document.getElementById('loadMoreWrap');
-  const clearFiltersBtn = document.getElementById('clearFiltersBtn') ||
-                          document.querySelector('[data-clear-filters]');
-
-  // Type filter chips / buttons
-  const typeChips       = document.querySelectorAll('[data-type]');
-
-  // Category select / chips
-  const categorySelect  = document.getElementById('filterCategory');
-  const categoryChips   = document.querySelectorAll('[data-category]');
-
-  // School filter
-  const schoolSelect    = document.getElementById('filterSchool')    ||
-                          document.querySelector('[name="filterSchool"]');
-
-  // Sort select
-  const sortSelect      = document.getElementById('filterSort')      ||
-                          document.querySelector('[name="filterSort"]');
-
-  // Condition chips / radio
-  const conditionChips  = document.querySelectorAll('[data-condition]');
-
-  // Price range inputs
-  const priceMinInput   = document.getElementById('priceMin')        ||
-                          document.querySelector('[name="priceMin"]');
-  const priceMaxInput   = document.getElementById('priceMax')        ||
-                          document.querySelector('[name="priceMax"]');
-
-  // Filter panel toggle (mobile)
-  const filterToggleBtn = document.getElementById('filterToggleBtn') ||
-                          document.querySelector('[data-filter-toggle]');
-  const filterPanel     = document.getElementById('filterPanel')     ||
-                          document.querySelector('[data-filter-panel]');
+  const searchInput      = document.getElementById('searchInput');
+  const clearBtn         = document.getElementById('clearBtn');
+  const srFilters        = document.getElementById('srFilters');
+  const srDefault        = document.getElementById('srDefault');
+  const srResults        = document.getElementById('srResults');
+  const srEmpty          = document.getElementById('srEmpty');
+  const srSuggestions    = document.getElementById('srSuggestions');
+  const srResultsBody    = document.getElementById('srResultsBody');
+  const srCount          = document.getElementById('srCount');
+  const srQuery          = document.getElementById('srQuery');
+  const emptyQuery       = document.getElementById('emptyQuery');
+  const recentChips      = document.getElementById('recentChips');
+  const popularChips     = document.getElementById('popularChips');
+  const categoryGrid     = document.getElementById('categoryGrid');
+  const clearRecent      = document.getElementById('clearRecent');
+  const priceFilter      = document.getElementById('priceFilter');
+  const priceModal       = document.getElementById('priceModal');
+  const priceModalBackdrop = document.getElementById('priceModalBackdrop');
+  const priceMin         = document.getElementById('priceMin');
+  const priceMax         = document.getElementById('priceMax');
+  const priceClear       = document.getElementById('priceClear');
+  const priceApply       = document.getElementById('priceApply');
+  const filterChips      = document.querySelectorAll('.filter-chip');
+  const pricePresets     = document.querySelectorAll('.price-preset');
 
 
   /* ==========================================================
-     3. DEBOUNCE HELPER
-     Prevents a Supabase query firing on every keystroke.
-     300ms delay — feels instant but avoids thrashing.
+     DEBOUNCE
   ========================================================== */
 
-  function debounce(fn, delay) {
-    let timer;
-    return (...args) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn(...args), delay);
-    };
+  function debounce(fn, ms) {
+    let t;
+    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
   }
 
-  const debouncedSearch = debounce(() => runSearch(true), 300);
+  const debouncedSearch = debounce(() => runSearch(), 300);
 
 
   /* ==========================================================
-     4. BUILD SUPABASE QUERY
-     Constructs the full query from current state S.
-     Structured so Phase 3's JARAListings.fetch() is reused
-     where possible, then extended with search-specific params.
+     PANEL MANAGEMENT
+     Only one of three panels is visible at a time.
   ========================================================== */
 
-  async function buildAndRunQuery() {
-    const sb = window._supabase;
-    if (!sb) return { data: [], count: 0, error: new Error('Supabase not ready') };
+  function showPanel(name) {
+    srDefault?.setAttribute('hidden', '');
+    srResults?.setAttribute('hidden', '');
+    srEmpty?.setAttribute('hidden', '');
+
+    if (name === 'default') srDefault?.removeAttribute('hidden');
+    if (name === 'results') srResults?.removeAttribute('hidden');
+    if (name === 'empty')   srEmpty?.removeAttribute('hidden');
+  }
+
+
+  /* ==========================================================
+     SEARCH INPUT
+  ========================================================== */
+
+  searchInput?.addEventListener('input', () => {
+    S.query = searchInput.value.trim();
+
+    // Show / hide clear button
+    if (clearBtn) clearBtn.hidden = S.query.length === 0;
+
+    if (S.query.length === 0) {
+      showPanel('default');
+      srFilters?.setAttribute('hidden', '');
+      return;
+    }
+
+    debouncedSearch();
+  });
+
+  searchInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      S.query = searchInput.value.trim();
+      runSearch();
+    }
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    if (searchInput) searchInput.value = '';
+    S.query = '';
+    clearBtn.hidden = true;
+    srFilters?.setAttribute('hidden', '');
+    showPanel('default');
+    searchInput?.focus();
+  });
+
+
+  /* ==========================================================
+     FILTER CHIPS
+  ========================================================== */
+
+  filterChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const val = chip.dataset.filter;
+
+      // Price chip opens modal instead of filtering directly
+      if (val === 'price') return;
+
+      filterChips.forEach(c => {
+        c.classList.remove('filter-chip--active');
+        c.setAttribute('aria-pressed', 'false');
+      });
+      chip.classList.add('filter-chip--active');
+      chip.setAttribute('aria-pressed', 'true');
+
+      S.filter = val;
+
+      if (S.hasSearched) runSearch();
+    });
+  });
+
+
+  /* ==========================================================
+     EXECUTE SEARCH
+  ========================================================== */
+
+  async function runSearch() {
+    if (!S.query) return;
+    if (S.loading) return;
+
+    S.loading     = true;
+    S.hasSearched = true;
+
+    // Save to recent searches
+    saveRecentSearch(S.query);
+
+    // Show filters bar
+    srFilters?.removeAttribute('hidden');
+
+    // Show skeleton while loading
+    showPanel('results');
+    showSkeletons();
 
     try {
-      /*
-       Base select — reuses the same column set as jara-listings.js
-       so cards render identically to explore/store pages.
-      */
+      const sb = window._supabase;
+      if (!sb) throw new Error('Supabase not ready');
+
+      /* ---- Build query ---- */
       let query = sb
         .from('listings')
         .select(`
@@ -163,167 +200,62 @@ document.addEventListener('DOMContentLoaded', async () => {
           images,
           view_count,
           created_at,
-          updated_at,
           profiles (
             id,
             full_name,
-            username,
             business_name,
             avatar_url,
             account_type,
             school,
+            phone,
+            whatsapp,
             is_verified,
             is_founding_member,
             is_premium,
             pro_status
           )
-        `, { count: 'exact' });
+        `, { count: 'exact' })
+        .eq('status', 'active')
+        .or(`title.ilike.%${S.query}%,description.ilike.%${S.query}%,category.ilike.%${S.query}%`)
+        .order('created_at', { ascending: false })
+        .limit(40);
 
-      /* ── Status: only show active, approved, visible listings ── */
-      query = query.eq('status', 'active');
-
-      /* ── Full-text / partial search ─────────────────────────────
-         Supabase ilike performs case-insensitive partial matching.
-         We search across title, description, and category.
-
-         FUTURE: Replace with full-text search using a tsvector
-         search_vector column for better relevance ranking:
-           query = query.textSearch('search_vector', S.query, {
-             type: 'websearch',
-             config: 'english',
-           });
-      */
-      if (S.query && S.query.trim().length > 0) {
-        const term = S.query.trim();
-        query = query.or(
-          `title.ilike.%${term}%,description.ilike.%${term}%,category.ilike.%${term}%`
-        );
+      /* ---- Type filter ---- */
+      if (S.filter !== 'all' && S.filter !== 'business' && S.filter !== 'nearby') {
+        query = query.eq('listing_type', S.filter);
       }
 
-      /* ── Type filter ──────────────────────────────────────────── */
-      if (S.type) {
-        query = query.eq('listing_type', S.type);
-      }
+      /* ---- Price filter ---- */
+      if (S.priceMin) query = query.gte('price', Number(S.priceMin));
+      if (S.priceMax) query = query.lte('price', Number(S.priceMax));
 
-      /* ── Category filter ─────────────────────────────────────── */
-      if (S.category) {
-        query = query.ilike('category', S.category);
-      }
-
-      /* ── Condition filter ────────────────────────────────────── */
-      if (S.condition) {
-        query = query.eq('condition', S.condition);
-      }
-
-      /* ── Price range ─────────────────────────────────────────── */
-      if (S.priceMin !== null && S.priceMin !== '') {
-        query = query.gte('price', Number(S.priceMin));
-      }
-      if (S.priceMax !== null && S.priceMax !== '') {
-        query = query.lte('price', Number(S.priceMax));
-      }
-
-      /* ── School filter ───────────────────────────────────────────
-         School is on the profiles table — we filter in JS after
-         fetching since Supabase JS v2 doesn't support filtering on
-         joined tables directly in .select().
-
-         FUTURE: Use an RPC or a view that joins listings + profiles
-         and filter by school on the server:
-           query = query.eq('profiles.school', S.school);
-      */
-
-      /* ── Sort ───────────────────────────────────────────────── */
-      query = query.order(S.sortBy, { ascending: S.sortAsc });
-
-      /* ── Pagination ──────────────────────────────────────────── */
-      query = query.range(S.offset, S.offset + S.limit - 1);
-
-      /* ── Execute ─────────────────────────────────────────────── */
       const { data, count, error } = await query;
 
-      if (error) {
-        console.error('JARASearch: query error:', error.message);
-        return { data: [], count: 0, error };
-      }
+      if (error) throw new Error(error.message);
 
-      /* ── Post-fetch school filter (JS-side) ─────────────────── */
-      let results = data || [];
-      if (S.school) {
-        results = results.filter(
-          l => l.profiles?.school?.toLowerCase() === S.school.toLowerCase()
+      S.results = data || [];
+
+      /* ---- Business filter (JS-side — filter by account_type) ---- */
+      let filtered = S.results;
+      if (S.filter === 'business') {
+        filtered = S.results.filter(l =>
+          l.profiles?.account_type === 'business'
         );
       }
 
-      return { data: results, count: count || 0, error: null };
-
-    } catch (err) {
-      console.error('JARASearch: buildAndRunQuery unexpected error:', err.message);
-      return { data: [], count: 0, error: err };
-    }
-  }
-
-
-  /* ==========================================================
-     5. EXECUTE SEARCH
-     reset = true  → clear results, start from page 1
-     reset = false → append next page (load more)
-  ========================================================== */
-
-  async function runSearch(reset = true) {
-    if (S.loading) return;
-    S.loading     = true;
-    S.hasSearched = true;
-
-    if (reset) {
-      S.offset = 0;
-      showLoading(true);
-      if (resultsGrid) resultsGrid.innerHTML = '';
-    } else {
-      if (loadMoreBtn) {
-        loadMoreBtn.disabled    = true;
-        loadMoreBtn.textContent = 'Loading…';
-      }
-    }
-
-    syncUrlState();
-
-    try {
-      const { data, count, error } = await buildAndRunQuery();
-
-      showLoading(false);
-
-      if (loadMoreBtn) {
-        loadMoreBtn.disabled    = false;
-        loadMoreBtn.textContent = 'Load More';
-      }
-
-      if (error) {
-        showError();
-        S.loading = false;
-        return;
-      }
-
-      S.total   = count;
-      S.offset += data.length;
-
-      updateResultsCount(count);
-
-      if (data.length === 0 && reset) {
-        showEmpty();
+      /* ---- Render ---- */
+      if (filtered.length === 0) {
+        showPanel('empty');
+        if (emptyQuery) emptyQuery.textContent = `"${S.query}"`;
       } else {
-        renderResults(data);
+        renderResults(filtered, count || filtered.length);
+        showPanel('results');
       }
 
-      // Show / hide load more
-      const hasMore = S.offset < S.total;
-      if (loadMoreWrap) loadMoreWrap.hidden = !hasMore;
-      if (loadMoreBtn)  loadMoreBtn.hidden  = !hasMore;
-
     } catch (err) {
-      console.error('JARASearch: runSearch error:', err.message);
-      showLoading(false);
-      showError();
+      console.error('Search error:', err.message);
+      showPanel('empty');
+      if (emptyQuery) emptyQuery.textContent = `"${S.query}"`;
     }
 
     S.loading = false;
@@ -331,30 +263,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   /* ==========================================================
-     6. RENDER RESULTS
-     Appends result cards to the grid.
-     Reuses the same card builder pattern as explore.js
-     so cards look identical everywhere.
+     RENDER RESULTS
   ========================================================== */
 
-  function renderResults(listings) {
-    if (!resultsGrid) return;
+  function showSkeletons() {
+    if (!srResultsBody) return;
+    srResultsBody.innerHTML = '';
 
-    listings.forEach((listing, i) => {
-      const card = buildResultCard(listing);
-      card.style.animationDelay = `${i * 25}ms`;
-      resultsGrid.appendChild(card);
-    });
+    if (srCount) srCount.textContent = '';
+    if (srQuery) srQuery.textContent = '';
+
+    for (let i = 0; i < 6; i++) {
+      const skel = document.createElement('div');
+      skel.className = 'sr-result-card j-skel';
+      skel.style.cssText = 'height:220px;border-radius:16px';
+      skel.setAttribute('aria-hidden', 'true');
+      srResultsBody.appendChild(skel);
+    }
   }
 
+  function renderResults(listings, total) {
+    if (!srResultsBody) return;
+    srResultsBody.innerHTML = '';
 
-  /* ==========================================================
-     7. RESULT CARD BUILDER
-     Matches the existing .listing-mini card structure
-     already in the HTML/CSS — no new classes introduced.
-  ========================================================== */
+    /* ---- Results count ---- */
+    if (srCount) {
+      srCount.textContent = total === 1 ? '1 result' : `${total} results`;
+    }
+    if (srQuery) {
+      srQuery.textContent = `for "${S.query}"`;
+    }
 
-  function buildResultCard(listing) {
+    /* ---- Result cards grid ---- */
+    const grid = document.createElement('div');
+    grid.className = 'sr-results-grid';
+
+    listings.forEach((listing, i) => {
+      const card = buildResultCard(listing, i);
+      grid.appendChild(card);
+    });
+
+    srResultsBody.appendChild(grid);
+  }
+
+  function buildResultCard(listing, index) {
     const cover      = JARAListings.getCoverImage(listing);
     const price      = JARAListings.formatPrice(listing);
     const ago        = JARAListings.timeAgo(listing.created_at);
@@ -365,68 +317,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       : '';
 
     const card = document.createElement('a');
-    card.className = 'listing-mini j-card';
+    card.className = 'sr-result-card j-card';
     card.href      = `../listing/index.html?id=${esc(listing.id)}`;
     card.setAttribute('aria-label', listing.title);
-    card.style.animation = 'fade-up 250ms ease both';
+    card.style.animationDelay = `${index * 30}ms`;
 
     card.innerHTML = `
-      <div class="listing-mini__img-wrap">
+      <div class="sr-result-card__img-wrap">
         ${cover
           ? `<img
-               class="listing-mini__img"
+               class="sr-result-card__img"
                src="${esc(cover)}"
                alt="${esc(listing.title)}"
-               loading="lazy"
+               loading="${index < 4 ? 'eager' : 'lazy'}"
              />`
-          : `<div class="listing-mini__img-placeholder" aria-hidden="true">
+          : `<div class="sr-result-card__img-placeholder" aria-hidden="true">
                <i class="fa-solid fa-image"></i>
              </div>`
         }
-        <span class="listing-mini__type pill pill--${esc(listing.listing_type || 'product')}">
-          ${esc(typeLabel)}
-        </span>
+        <span class="sr-result-card__type">${esc(typeLabel)}</span>
         ${JARAProfile.isPro(seller)
-          ? `<span class="listing-mini__pro" aria-label="PRO seller">PRO</span>`
+          ? `<span class="sr-result-card__pro">PRO</span>`
           : ''
         }
       </div>
-      <div class="listing-mini__body">
-        <p class="listing-mini__title">${esc(listing.title)}</p>
-        <p class="listing-mini__price">
-          ${esc(price)}
-          ${listing.negotiable
-            ? `<span class="listing-mini__neg">Negotiable</span>`
+      <div class="sr-result-card__body">
+        <p class="sr-result-card__title">${esc(listing.title)}</p>
+        <p class="sr-result-card__price">${esc(price)}</p>
+        <div class="sr-result-card__meta">
+          <span class="sr-result-card__seller">${esc(sellerName)}</span>
+          ${seller.school
+            ? `<span class="sr-result-card__school">${esc(seller.school)}</span>`
             : ''
           }
-        </p>
-        <div class="listing-mini__meta">
-          <div class="listing-mini__seller">
-            ${seller.avatar_url
-              ? `<img
-                   class="listing-mini__avatar"
-                   src="${esc(seller.avatar_url)}"
-                   alt="${esc(sellerName)}"
-                   loading="lazy"
-                 />`
-              : `<div class="listing-mini__avatar listing-mini__avatar--initials">
-                   ${esc(getInitials(sellerName))}
-                 </div>`
-            }
-            <div class="listing-mini__seller-info">
-              <span class="listing-mini__seller-name">${esc(sellerName)}</span>
-              ${seller.school
-                ? `<span class="listing-mini__school">${esc(seller.school)}</span>`
-                : ''
-              }
-            </div>
-          </div>
-          <span class="listing-mini__time">${esc(ago)}</span>
+          <span class="sr-result-card__time">${esc(ago)}</span>
         </div>
-        ${listing.category
-          ? `<span class="listing-mini__cat">${esc(listing.category)}</span>`
-          : ''
-        }
       </div>
     `;
 
@@ -435,359 +360,174 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   /* ==========================================================
-     8. LOADING STATE
+     DEFAULT PANEL — Recent, Popular, Categories
   ========================================================== */
 
-  function showLoading(on) {
-    if (loadingSpinner) loadingSpinner.hidden = !on;
+  /* ---- Recent searches (localStorage) ---- */
+  const RECENT_KEY  = 'jara_recent_searches';
+  const RECENT_MAX  = 8;
 
-    if (on && resultsGrid) {
-      // Show skeleton cards while loading
-      resultsGrid.innerHTML = '';
-      for (let i = 0; i < 6; i++) {
-        const skel = document.createElement('div');
-        skel.className = 'listing-mini j-skel j-skel-card';
-        skel.style.minHeight = '220px';
-        skel.setAttribute('aria-hidden', 'true');
-        resultsGrid.appendChild(skel);
-      }
-    }
+  function getRecentSearches() {
+    try {
+      return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    } catch { return []; }
   }
 
+  function saveRecentSearch(query) {
+    if (!query) return;
+    try {
+      let recent = getRecentSearches().filter(q => q !== query);
+      recent.unshift(query);
+      recent = recent.slice(0, RECENT_MAX);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+      renderRecentSearches();
+    } catch {}
+  }
 
-  /* ==========================================================
-     9. EMPTY STATE
-  ========================================================== */
+  function renderRecentSearches() {
+    if (!recentChips) return;
+    const recent = getRecentSearches();
+    recentChips.innerHTML = '';
 
-  function showEmpty() {
-    if (!resultsGrid) return;
-    resultsGrid.innerHTML = '';
+    if (recent.length === 0) {
+      recentChips.innerHTML = `
+        <p class="sr-default-empty">No recent searches yet.</p>`;
+      return;
+    }
 
-    const hasActiveFilters = S.query || S.type || S.category ||
-                             S.school || S.condition ||
-                             S.priceMin || S.priceMax;
-
-    if (window.jaraEmpty) {
-      window.jaraEmpty(resultsGrid, {
-        icon:      'fa-solid fa-magnifying-glass',
-        title:     'No matching listings found',
-        body:      hasActiveFilters
-          ? 'Try different keywords or clear your filters.'
-          : 'No listings have been posted yet. Be the first!',
-        btnLabel:  hasActiveFilters ? 'Clear Filters' : 'Create Listing',
-        btnAction: hasActiveFilters ? clearAllFilters : null,
-        btnHref:   hasActiveFilters ? null : '../sell/index.html',
-      });
-    } else {
-      // Fallback if jara-polish hasn't loaded
-      resultsGrid.innerHTML = `
-        <div class="search-empty" style="text-align:center;padding:3rem 1rem;grid-column:1/-1">
-          <p style="font-family:var(--sans);font-size:1rem;font-weight:700;color:var(--text);margin-bottom:.5rem">
-            No matching listings found
-          </p>
-          <p style="font-size:.875rem;color:var(--text-2);margin-bottom:1rem">
-            Try different keywords or clear your filters.
-          </p>
-          <button id="inline清清ClearBtn" type="button"
-                  style="background:var(--accent);color:#fff;border:none;padding:10px 20px;
-                         border-radius:9999px;font-family:var(--sans);font-weight:700;cursor:pointer">
-            Clear Filters
-          </button>
-        </div>
+    recent.forEach(query => {
+      const chip = document.createElement('button');
+      chip.type      = 'button';
+      chip.className = 'chip-item';
+      chip.innerHTML = `
+        <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+        ${esc(query)}
       `;
-      document.getElementById('inlineClearBtn')
-        ?.addEventListener('click', clearAllFilters);
-    }
-  }
-
-
-  /* ==========================================================
-     10. ERROR STATE
-  ========================================================== */
-
-  function showError() {
-    if (!resultsGrid) return;
-    resultsGrid.innerHTML = '';
-    if (window.jaraError) {
-      window.jaraError(resultsGrid, {
-        title:   "Couldn't load results",
-        body:    'Please check your connection and try again.',
-        onRetry: () => runSearch(true),
+      chip.addEventListener('click', () => {
+        if (searchInput) searchInput.value = query;
+        S.query = query;
+        if (clearBtn) clearBtn.hidden = false;
+        runSearch();
       });
-    }
+      recentChips.appendChild(chip);
+    });
+  }
+
+  clearRecent?.addEventListener('click', () => {
+    try { localStorage.removeItem(RECENT_KEY); } catch {}
+    renderRecentSearches();
+  });
+
+  /* ---- Popular searches ---- */
+  function renderPopularSearches() {
+    if (!popularChips) return;
+    popularChips.innerHTML = '';
+
+    POPULAR_SEARCHES.forEach(query => {
+      const chip = document.createElement('button');
+      chip.type      = 'button';
+      chip.className = 'chip-item';
+      chip.innerHTML = `
+        <i class="fa-solid fa-fire" aria-hidden="true"></i>
+        ${esc(query)}
+      `;
+      chip.addEventListener('click', () => {
+        if (searchInput) searchInput.value = query;
+        S.query = query;
+        if (clearBtn) clearBtn.hidden = false;
+        runSearch();
+      });
+      popularChips.appendChild(chip);
+    });
+  }
+
+  /* ---- Categories ---- */
+  async function renderCategories() {
+    if (!categoryGrid) return;
+    categoryGrid.innerHTML = '';
+
+    const categories = await JARAListings.getCategories();
+
+    const list = categories.length > 0 ? categories : [
+      'Books & Stationery', 'Food & Drinks', 'Tech & Repairs',
+      'Personal Care', 'Creative Services', 'Laundry & Errands',
+      'Tutoring', 'Power & Generator', 'Fashion & Clothing',
+      'Health & Wellness', 'Transport', 'Other',
+    ];
+
+    list.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.type      = 'button';
+      btn.className = 'category-chip';
+      btn.textContent = cat;
+      btn.addEventListener('click', () => {
+        if (searchInput) searchInput.value = cat;
+        S.query  = cat;
+        S.filter = 'all';
+        if (clearBtn) clearBtn.hidden = false;
+        runSearch();
+      });
+      categoryGrid.appendChild(btn);
+    });
   }
 
 
   /* ==========================================================
-     11. FILTER LISTENERS
-     Wire every existing filter control to update state + search.
-     No new HTML controls are created — only listeners added.
+     PRICE FILTER MODAL
   ========================================================== */
 
-  /* ---- Type chips (Product / Service / Request) ---- */
-  typeChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const val  = chip.dataset.type;
-      S.type     = S.type === val ? null : val;
-      S.offset   = 0;
+  priceFilter?.addEventListener('click', () => {
+    priceModal?.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+  });
 
-      typeChips.forEach(c =>
-        c.classList.toggle('chip--active', c.dataset.type === S.type)
-      );
+  function closePriceModal() {
+    priceModal?.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+  }
 
-      runSearch(true);
+  priceModalBackdrop?.addEventListener('click', closePriceModal);
+
+  priceClear?.addEventListener('click', () => {
+    S.priceMin = null;
+    S.priceMax = null;
+    if (priceMin) priceMin.value = '';
+    if (priceMax) priceMax.value = '';
+
+    // Deactivate price chip
+    priceFilter?.classList.remove('filter-chip--active');
+    priceFilter?.setAttribute('aria-pressed', 'false');
+
+    closePriceModal();
+    if (S.hasSearched) runSearch();
+  });
+
+  priceApply?.addEventListener('click', () => {
+    S.priceMin = priceMin?.value ? Number(priceMin.value) : null;
+    S.priceMax = priceMax?.value ? Number(priceMax.value) : null;
+
+    // Activate price chip visually
+    if (S.priceMin || S.priceMax) {
+      priceFilter?.classList.add('filter-chip--active');
+      priceFilter?.setAttribute('aria-pressed', 'true');
+    }
+
+    closePriceModal();
+    if (S.query) runSearch();
+  });
+
+  pricePresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const min = btn.dataset.min;
+      const max = btn.dataset.max;
+      if (priceMin) priceMin.value = min;
+      if (priceMax) priceMax.value = max;
+
+      // Highlight active preset
+      pricePresets.forEach(p => p.classList.remove('price-preset--active'));
+      btn.classList.add('price-preset--active');
     });
   });
-
-  /* ---- Category select ---- */
-  categorySelect?.addEventListener('change', () => {
-    S.category = categorySelect.value || null;
-    S.offset   = 0;
-    runSearch(true);
-  });
-
-  /* ---- Category chips (if present instead of select) ---- */
-  categoryChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const val    = chip.dataset.category;
-      S.category   = S.category === val ? null : val;
-      S.offset     = 0;
-
-      categoryChips.forEach(c =>
-        c.classList.toggle('chip--active', c.dataset.category === S.category)
-      );
-
-      runSearch(true);
-    });
-  });
-
-  /* ---- School select ---- */
-  schoolSelect?.addEventListener('change', () => {
-    S.school = schoolSelect.value || null;
-    S.offset = 0;
-    runSearch(true);
-  });
-
-  /* ---- Sort select ---- */
-  sortSelect?.addEventListener('change', () => {
-    const val = sortSelect.value || 'newest';
-
-    switch (val) {
-      case 'newest':
-        S.sortBy  = 'created_at';
-        S.sortAsc = false;
-        break;
-      case 'oldest':
-        S.sortBy  = 'created_at';
-        S.sortAsc = true;
-        break;
-      case 'price_low':
-        S.sortBy  = 'price';
-        S.sortAsc = true;
-        break;
-      case 'price_high':
-        S.sortBy  = 'price';
-        S.sortAsc = false;
-        break;
-      default:
-        S.sortBy  = 'created_at';
-        S.sortAsc = false;
-    }
-
-    S.offset = 0;
-    runSearch(true);
-  });
-
-  /* ---- Condition chips ---- */
-  conditionChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const val    = chip.dataset.condition;
-      S.condition  = S.condition === val ? null : val;
-      S.offset     = 0;
-
-      conditionChips.forEach(c =>
-        c.classList.toggle('chip--active', c.dataset.condition === S.condition)
-      );
-
-      runSearch(true);
-    });
-  });
-
-  /* ---- Price range inputs (debounced) ---- */
-  const debouncedPriceSearch = debounce(() => {
-    S.priceMin = priceMinInput?.value || null;
-    S.priceMax = priceMaxInput?.value || null;
-    S.offset   = 0;
-    runSearch(true);
-  }, 500);
-
-  priceMinInput?.addEventListener('input', debouncedPriceSearch);
-  priceMaxInput?.addEventListener('input', debouncedPriceSearch);
-
-  /* ---- Filter panel toggle (mobile) ---- */
-  filterToggleBtn?.addEventListener('click', () => {
-    if (!filterPanel) return;
-    const isOpen = !filterPanel.hidden;
-    filterPanel.hidden = isOpen;
-    filterToggleBtn.setAttribute('aria-expanded', String(!isOpen));
-  });
-
-  /* ---- Load more ---- */
-  loadMoreBtn?.addEventListener('click', () => runSearch(false));
-
-
-  /* ==========================================================
-     12. SEARCH INPUT LISTENER
-     Uses the 300ms debounce — typing feels instant but
-     Supabase is only hit when the user pauses.
-  ========================================================== */
-
-  searchInput?.addEventListener('input', () => {
-    S.query  = searchInput.value.trim();
-    S.offset = 0;
-    debouncedSearch();
-  });
-
-  /* ---- Also run on Enter key without waiting for debounce ---- */
-  searchInput?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      S.query = searchInput.value.trim();
-      S.offset = 0;
-      runSearch(true);
-    }
-  });
-
-
-  /* ==========================================================
-     13. CLEAR FILTERS
-  ========================================================== */
-
-  function clearAllFilters() {
-    S.query     = '';
-    S.type      = null;
-    S.category  = null;
-    S.school    = null;
-    S.condition = null;
-    S.priceMin  = null;
-    S.priceMax  = null;
-    S.sortBy    = 'created_at';
-    S.sortAsc   = false;
-    S.offset    = 0;
-
-    // Reset input values
-    if (searchInput)    searchInput.value    = '';
-    if (categorySelect) categorySelect.value = '';
-    if (schoolSelect)   schoolSelect.value   = '';
-    if (sortSelect)     sortSelect.value     = 'newest';
-    if (priceMinInput)  priceMinInput.value  = '';
-    if (priceMaxInput)  priceMaxInput.value  = '';
-
-    // Reset all chip active states
-    [typeChips, categoryChips, conditionChips].forEach(chips => {
-      chips.forEach(c => c.classList.remove('chip--active'));
-    });
-
-    syncUrlState();
-    runSearch(true);
-  }
-
-  clearFiltersBtn?.addEventListener('click', clearAllFilters);
-
-
-  /* ==========================================================
-     14. URL STATE SYNC
-     Persists search state in the URL query string.
-     This means:
-       • Sharing a search URL works.
-       • Back button returns to same results.
-       • Page refresh keeps the search.
-  ========================================================== */
-
-  function syncUrlState() {
-    const params = new URLSearchParams();
-    if (S.query)     params.set('q',    S.query);
-    if (S.type)      params.set('type', S.type);
-    if (S.category)  params.set('cat',  S.category);
-    if (S.school)    params.set('school', S.school);
-    if (S.condition) params.set('cond', S.condition);
-    if (S.priceMin)  params.set('min',  S.priceMin);
-    if (S.priceMax)  params.set('max',  S.priceMax);
-    if (S.sortBy !== 'created_at' || S.sortAsc) {
-      params.set('sort', S.sortAsc ? `${S.sortBy}_asc` : `${S.sortBy}_desc`);
-    }
-
-    const newUrl = params.toString()
-      ? `${window.location.pathname}?${params.toString()}`
-      : window.location.pathname;
-
-    window.history.replaceState({}, '', newUrl);
-  }
-
-  function loadUrlState() {
-    const params = new URLSearchParams(window.location.search);
-
-    if (params.get('q'))      S.query     = params.get('q');
-    if (params.get('type'))   S.type      = params.get('type');
-    if (params.get('cat'))    S.category  = params.get('cat');
-    if (params.get('school')) S.school    = params.get('school');
-    if (params.get('cond'))   S.condition = params.get('cond');
-    if (params.get('min'))    S.priceMin  = params.get('min');
-    if (params.get('max'))    S.priceMax  = params.get('max');
-
-    const sort = params.get('sort');
-    if (sort) {
-      const [field, dir] = sort.split('_');
-      S.sortBy  = field === 'price' ? 'price' : 'created_at';
-      S.sortAsc = dir === 'asc';
-    }
-
-    // Restore UI to match loaded state
-    if (searchInput && S.query)       searchInput.value    = S.query;
-    if (categorySelect && S.category) categorySelect.value = S.category;
-    if (schoolSelect && S.school)     schoolSelect.value   = S.school;
-
-    if (S.type) {
-      typeChips.forEach(c =>
-        c.classList.toggle('chip--active', c.dataset.type === S.type)
-      );
-    }
-
-    if (S.category) {
-      categoryChips.forEach(c =>
-        c.classList.toggle('chip--active', c.dataset.category === S.category)
-      );
-    }
-
-    if (S.condition) {
-      conditionChips.forEach(c =>
-        c.classList.toggle('chip--active', c.dataset.condition === S.condition)
-      );
-    }
-
-    if (sortSelect && S.sortBy) {
-      if (S.sortBy === 'price' && !S.sortAsc)  sortSelect.value = 'price_high';
-      if (S.sortBy === 'price' && S.sortAsc)   sortSelect.value = 'price_low';
-      if (S.sortBy === 'created_at' && S.sortAsc) sortSelect.value = 'oldest';
-    }
-
-    if (priceMinInput && S.priceMin) priceMinInput.value = S.priceMin;
-    if (priceMaxInput && S.priceMax) priceMaxInput.value = S.priceMax;
-  }
-
-
-  /* ==========================================================
-     15. RESULTS COUNT UPDATE
-  ========================================================== */
-
-  function updateResultsCount(count) {
-    if (!resultsCount) return;
-    if (!S.hasSearched) { resultsCount.textContent = ''; return; }
-    resultsCount.textContent =
-      count === 0  ? 'No results' :
-      count === 1  ? '1 result'   :
-                     `${count.toLocaleString()} results`;
-  }
 
 
   /* ==========================================================
@@ -801,39 +541,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     return d.innerHTML;
   }
 
-  function getInitials(name) {
-    if (!name) return '?';
-    const words = name.trim().split(' ').filter(Boolean);
-    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-  }
-
 
   /* ==========================================================
      INIT
   ========================================================== */
 
   async function init() {
-    // Load profile for nav avatar etc.
-    try {
-      const profile = await JARAProfile.load();
-      if (profile) {
-        window.__JARA_IS_FOUNDER = JARAProfile.isFounder(profile);
-        window.__JARA_IS_PRO     = JARAProfile.isPro(profile);
-      }
-    } catch (e) {
-      // Non-fatal — search still works without profile
+    // Reveal page (search is a protected page — auth-guard hides it)
+    document.body.style.visibility = '';
+    document.body.style.opacity    = '';
+
+    // Load profile silently
+    try { await JARAProfile.load(); } catch {}
+
+    // Build default panel content
+    renderRecentSearches();
+    renderPopularSearches();
+    await renderCategories();
+
+    // Show default panel
+    showPanel('default');
+
+    // Focus search input
+    searchInput?.focus();
+
+    // Check if URL has a query param (e.g. from explore page search bar)
+    const params = new URLSearchParams(window.location.search);
+    const q      = params.get('q');
+    if (q) {
+      if (searchInput) searchInput.value = q;
+      S.query = q;
+      if (clearBtn) clearBtn.hidden = false;
+      await runSearch();
     }
-
-    // Restore state from URL if present (e.g. shared link, back button)
-    loadUrlState();
-
-    /*
-     Run initial search:
-       - If URL has a query/filter → search immediately with those params
-       - If arriving fresh → show recent listings (no filter = all active)
-    */
-    await runSearch(true);
   }
 
   init();
