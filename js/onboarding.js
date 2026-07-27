@@ -657,7 +657,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       /* ---- Stop spinner + redirect ---- */
       setFinishLoading(false);
-      window.location.replace(JARAAuth.ROUTES.explore);
+     // Determine correct base path for GitHub Pages
+      const base = window.location.pathname.includes('/JARA/')
+        ? '/JARA/'
+        : '/';
+
+      if (S.role === 'seller') {
+        window.location.replace(base + 'store/index.html');
+      } else {
+        window.location.replace(base + 'explore/index.html');
+                          }
 
     } catch (err) {
       console.error('Onboarding unexpected error:', err.message);
