@@ -290,44 +290,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   function prepareStep2() {
-    // Hide both forms first
-    if (formStudent)  formStudent.hidden  = true;
-    if (formBusiness) formBusiness.hidden = true;
+    // Completely hide both forms from layout
+    if (formStudent) {
+      formStudent.hidden = true;
+      formStudent.style.display = 'none';
+    }
+    if (formBusiness) {
+      formBusiness.hidden = true;
+      formBusiness.style.display = 'none';
+    }
 
     if (S.role === 'buyer') {
-      if (formStudent)  formStudent.hidden  = false;
-      if (step2Title)   step2Title.textContent    = 'Your profile';
+      if (formStudent) {
+        formStudent.hidden = false;
+        formStudent.style.display = '';
+      }
+      if (step2Title)    step2Title.textContent    = 'Your profile';
       if (step2Subtitle) step2Subtitle.textContent = 'This is what people will see on your profile.';
 
-      // Pre-fill name from auth metadata / existing profile
       const authName = S.profile?.full_name ||
         window.__JARA_USER?.user_metadata?.full_name || '';
       if (authName && studentFullName && !studentFullName.value) {
         studentFullName.value = authName;
       }
 
+      buildSearchableSchoolDropdown(studentSchool);
+
     } else {
-      if (formBusiness) formBusiness.hidden = false;
-      if (step2Title)   step2Title.textContent    = 'Your seller profile';
+      if (formBusiness) {
+        formBusiness.hidden = false;
+        formBusiness.style.display = '';
+      }
+      if (step2Title)    step2Title.textContent    = 'Your seller profile';
       if (step2Subtitle) step2Subtitle.textContent = 'This is what customers will see on your store.';
 
-      // Pre-fill owner name from existing profile / auth metadata
       const authName = S.profile?.full_name ||
         window.__JARA_USER?.user_metadata?.full_name || '';
       if (authName && businessOwnerName && !businessOwnerName.value) {
         businessOwnerName.value = authName;
       }
-    }
 
-    buildSearchableSchoolDropdown(
-      S.role === 'buyer' ? studentSchool : studentSchool2
-    );
-
-    if (S.role === 'seller') {
+      buildSearchableSchoolDropdown(studentSchool2);
       buildBusinessCategories();
     }
-  }
-
+                          }
 
   /* ==========================================================
      SEARCHABLE SCHOOL DROPDOWN
