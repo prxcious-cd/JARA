@@ -234,20 +234,16 @@
         console.warn('JARA Auth: adminOnly guard is in placeholder mode.');
       }
 
-      // ── Onboarding check ───────────────────────────────────
+// ── Onboarding check ───────────────────────────────────
       if (!options.skipOnboarding) {
-        /*
-         FUTURE: Redirect incomplete profiles to onboarding:
-
-           if (profile && profile.onboarding_complete === false) {
-             const currentPath = window.location.pathname;
-             const alreadyOnboarding = currentPath.includes('/onboarding/');
-             if (!alreadyOnboarding) {
-               redirect(ROUTES.onboarding);
-               return;
-             }
-           }
-        */
+        if (profile && profile.onboarding_complete === false) {
+          const currentPath = window.location.pathname;
+          const alreadyOnboarding = currentPath.includes('/onboarding/');
+          if (!alreadyOnboarding) {
+            redirect(ROUTES.onboarding);
+            return;
+          }
+        }
       }
 
       // ── Auth confirmed — show page ─────────────────────────
