@@ -536,12 +536,18 @@
     init();
   }
 
-  // Re-apply when new content is dynamically injected
+// Re-apply micro-animations when new cards are injected.
+  // Debounced so rapid DOM mutations (listing card renders)
+  // only trigger one pass instead of hundreds.
+  let _observerTimer = null;
+
   const observer = new MutationObserver(() => {
-    initMicroAnimations();
-    initFoundingBadge();
+    clearTimeout(_observerTimer);
+    _observerTimer = setTimeout(() => {
+      initMicroAnimations();
+      initFoundingBadge();
+    }, 200);
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-
 })();
