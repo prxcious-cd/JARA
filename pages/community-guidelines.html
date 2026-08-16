@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>Community Guidelines — JARA ∆</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+  />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0A0A0F;
+      color: #F4F4F8;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      line-height: 1.7;
+      min-height: 100vh;
+      padding-bottom: 4rem;
+    }
+
+    .page-glow {
+      position: fixed;
+      top: -40%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(124,58,237,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .cg-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid #2A2A3E;
+      padding: 0.875rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.875rem;
+    }
+
+    .cg-topbar__back {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1A1A2A;
+      border: 1px solid #2A2A3E;
+      color: #F4F4F8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: background 150ms ease;
+    }
+    .cg-topbar__back:hover { background: #2A2A3E; }
+
+    .cg-topbar__title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #F4F4F8;
+      letter-spacing: -0.02em;
+    }
+
+    .cg-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem;
+    }
+
+    .cg-hero {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .cg-hero__icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(124,58,237,0.05));
+      border: 1px solid rgba(124,58,237,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      margin: 0 auto 1.25rem;
+    }
+
+    .cg-hero__title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #F4F4F8;
+      margin-bottom: 0.625rem;
+    }
+
+    .cg-hero__sub {
+      font-size: 0.9375rem;
+      color: #9090A8;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .cg-section {
+      background: #111118;
+      border: 1px solid #2A2A3E;
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .cg-section__header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .cg-section__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .cg-section__icon--green  { background: rgba(16,185,129,0.1); color: #10B981; }
+    .cg-section__icon--red    { background: rgba(239,68,68,0.1);  color: #EF4444; }
+    .cg-section__icon--blue   { background: rgba(59,130,246,0.1); color: #3B82F6; }
+    .cg-section__icon--gold   { background: rgba(245,158,11,0.1); color: #F59E0B; }
+    .cg-section__icon--purple { background: rgba(124,58,237,0.1); color: #7C3AED; }
+
+    .cg-section__title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #F4F4F8;
+      letter-spacing: -0.01em;
+    }
+
+    .cg-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.625rem;
+    }
+
+    .cg-list li {
+      display: flex;
+      gap: 0.625rem;
+      font-size: 0.9375rem;
+      color: #9090A8;
+      line-height: 1.6;
+    }
+
+    .cg-list li::before {
+      content: '·';
+      color: #7C3AED;
+      font-size: 1.25rem;
+      line-height: 1.4;
+      flex-shrink: 0;
+    }
+
+    .cg-note {
+      background: rgba(124,58,237,0.06);
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+      color: #9090A8;
+      text-align: center;
+    }
+
+    .cg-note strong { color: #A78BFA; }
+
+    .cg-updated {
+      text-align: center;
+      font-size: 0.8125rem;
+      color: #55556A;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <!-- Topbar -->
+  <header class="cg-topbar">
+    <a href="javascript:history.back()" class="cg-topbar__back" aria-label="Go back">
+      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
+    </a>
+    <span class="cg-topbar__title">Community Guidelines</span>
+  </header>
+
+  <div class="cg-wrap">
+
+    <!-- Hero -->
+    <div class="cg-hero">
+      <div class="cg-hero__icon" aria-hidden="true">🤝</div>
+      <h1 class="cg-hero__title">Community Guidelines</h1>
+      <p class="cg-hero__sub">
+        JARA ∆ is built on trust. These guidelines keep our campus marketplace
+        safe, honest and useful for everyone.
+      </p>
+    </div>
+
+    <!-- Be honest -->
+    <div class="cg-section">
+      <div class="cg-section__header">
+        <div class="cg-section__icon cg-section__icon--green">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+        </div>
+        <h2 class="cg-section__title">Be Honest</h2>
+      </div>
+      <ul class="cg-list">
+        <li>List only real products and services you actually have or offer.</li>
+        <li>Use accurate photos — your own, not images from Google or other sellers.</li>
+        <li>Set honest prices. Do not bait-and-switch after contact.</li>
+        <li>Describe your item accurately — include condition, defects and limitations.</li>
+        <li>Do not impersonate other sellers, businesses or JARA staff.</li>
+      </ul>
+    </div>
+
+    <!-- Respect others -->
+    <div class="cg-section">
+      <div class="cg-section__header">
+        <div class="cg-section__icon cg-section__icon--blue">
+          <i class="fa-solid fa-heart" aria-hidden="true"></i>
+        </div>
+        <h2 class="cg-section__title">Respect Everyone</h2>
+      </div>
+      <ul class="cg-list">
+        <li>Treat buyers and sellers with courtesy and respect.</li>
+        <li>No harassment, threats or abusive messages to any user.</li>
+        <li>No discrimination based on gender, tribe, religion or background.</li>
+        <li>If a deal does not work out, walk away — do not escalate.</li>
+        <li>Respect people's time. If you are not buying, say so.</li>
+      </ul>
+    </div>
+
+    <!-- What is not allowed -->
+    <div class="cg-section">
+      <div class="cg-section__header">
+        <div class="cg-section__icon cg-section__icon--red">
+          <i class="fa-solid fa-ban" aria-hidden="true"></i>
+        </div>
+        <h2 class="cg-section__title">What Is Not Allowed</h2>
+      </div>
+      <ul class="cg-list">
+        <li>Counterfeit, stolen or illegal goods of any kind.</li>
+        <li>Weapons, drugs, alcohol or any controlled substances.</li>
+        <li>Explicit, adult or pornographic content.</li>
+        <li>Scams, fake listings or fraudulent payment requests.</li>
+        <li>Spam — duplicate listings, fake engagement or bot activity.</li>
+        <li>Listing items you do not own or have no intention of delivering.</li>
+        <li>Collecting payments without delivering goods or services.</li>
+      </ul>
+    </div>
+
+    <!-- Safety tips -->
+    <div class="cg-section">
+      <div class="cg-section__icon cg-section__icon--gold" style="margin-bottom:1rem">
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+      </div>
+      <div class="cg-section__header">
+        <div class="cg-section__icon cg-section__icon--gold">
+          <i class="fa-solid fa-lock" aria-hidden="true"></i>
+        </div>
+        <h2 class="cg-section__title">Stay Safe</h2>
+      </div>
+      <ul class="cg-list">
+        <li>Meet in public, well-lit areas on campus for exchanges.</li>
+        <li>Never share your bank PIN, passwords or OTPs with anyone.</li>
+        <li>Verify payment before handing over any item.</li>
+        <li>For large transactions, bring a friend or meet at a campus office.</li>
+        <li>If something feels wrong, trust your instincts and report it.</li>
+      </ul>
+    </div>
+
+    <!-- PRO sellers -->
+    <div class="cg-section">
+      <div class="cg-section__header">
+        <div class="cg-section__icon cg-section__icon--gold">
+          <i class="fa-solid fa-crown" aria-hidden="true"></i>
+        </div>
+        <h2 class="cg-section__title">PRO Sellers</h2>
+      </div>
+      <ul class="cg-list">
+        <li>PRO status comes with higher visibility and trust — use it responsibly.</li>
+        <li>Maintain the same honesty and quality standards as all other sellers.</li>
+        <li>Repeated violations will result in PRO status removal without refund.</li>
+        <li>JARA reserves the right to verify any PRO seller's products or services.</li>
+      </ul>
+    </div>
+
+    <!-- Enforcement -->
+    <div class="cg-section">
+      <div class="cg-section__header">
+        <div class="cg-section__icon cg-section__icon--purple">
+          <i class="fa-solid fa-gavel" aria-hidden="true"></i>
+        </div>
+        <h2 class="cg-section__title">Enforcement</h2>
+      </div>
+      <ul class="cg-list">
+        <li>Listings that violate these guidelines will be removed without notice.</li>
+        <li>Repeat violations will result in account suspension.</li>
+        <li>Serious violations (fraud, harassment) result in permanent bans.</li>
+        <li>JARA admins review all reports and act within 24–48 hours.</li>
+        <li>Appeals can be sent via WhatsApp to the JARA support number.</li>
+      </ul>
+    </div>
+
+    <div class="cg-note">
+      <strong>Questions or concerns?</strong><br />
+      Contact us on WhatsApp:
+      <a href="https://wa.me/2347073436050" style="color:#A78BFA;text-decoration:none">
+        +234 707 343 6050
+      </a>
+    </div>
+
+    <p class="cg-updated">Last updated · July 2026</p>
+
+  </div>
+
+</body>
+  </html>
