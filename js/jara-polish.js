@@ -180,12 +180,24 @@
 
     if (!anchor) return;
 
-    const FOUNDING_USED  = 3;   // FUTURE: real count from Supabase
     const FOUNDING_TOTAL = 100;
-    const pct            = Math.round((FOUNDING_USED / FOUNDING_TOTAL) * 100);
-    const remaining      = FOUNDING_TOTAL - FOUNDING_USED;
 
-    const section = document.createElement('section');
+    // Fetch real founding member count from Supabase
+    let FOUNDING_USED = 0;
+    try {
+      const { count } = await window._supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_founding_member', true);
+      FOUNDING_USED = count || 0;
+    } catch (err) {
+      console.warn('JARA: could not fetch founding count:', err.message);
+    }
+
+    const pct       = Math.round((FOUNDING_USED / FOUNDING_TOTAL) * 100);
+    const remaining = FOUNDING_TOTAL - FOUNDING_USED;
+   
+     const section = document.createElement('section');
     section.id        = 'jaraFoundingSection';
     section.className = 'founding-lp-section';
     section.setAttribute('aria-labelledby', 'foundingLpTitle');
