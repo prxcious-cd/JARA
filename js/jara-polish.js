@@ -197,7 +197,8 @@
     const pct       = Math.round((FOUNDING_USED / FOUNDING_TOTAL) * 100);
     const remaining = FOUNDING_TOTAL - FOUNDING_USED;
    
-     const section = document.createElement('section');
+    
+    const section = document.createElement('section');
     section.id        = 'jaraFoundingSection';
     section.className = 'founding-lp-section';
     section.setAttribute('aria-labelledby', 'foundingLpTitle');
