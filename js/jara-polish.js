@@ -152,7 +152,7 @@
          .eq('is_founding_member', true);
   ========================================================== */
 
-  function injectFoundingSection() {
+  async function injectFoundingSection() {
     // Only runs on the main landing page
     const path = window.location.pathname;
     const isLanding =
