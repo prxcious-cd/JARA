@@ -539,7 +539,7 @@
 
   function init() {
     initFoundingBadge();
-    injectFoundingSection();
+    injectFoundingSection().catch(err => console.warn('Founding section error:', err.message));
     initMicroAnimations();
   }
 
