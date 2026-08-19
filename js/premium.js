@@ -150,7 +150,19 @@ document.addEventListener('DOMContentLoaded', () => {
        FUTURE: SELECT COUNT(*) FROM profiles WHERE is_founding_member = TRUE
       */
       const foundingUsed = $('foundingUsed');
-      if (foundingUsed) foundingUsed.textContent = 3; // placeholder
+      if (foundingUsed) {
+        try {
+          const { count } = await window._supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('is_founding_member', true);
+          foundingUsed.textContent = count || 0;
+        } catch (err) {
+          console.warn('JARA PRO: founding count failed:', err.message);
+          foundingUsed.textContent = 0;
+        }
+      }
+      
 
     } catch (e) {
       console.warn('JARA PRO: session load failed.', e?.message);
