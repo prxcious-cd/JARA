@@ -259,7 +259,10 @@ document.addEventListener('DOMContentLoaded', () => {
       */
 
       // Default: send to explore
-      window.location.replace(JARAAuth.ROUTES.explore);
+      const base = window.location.pathname.includes('/JARA/')
+  ? '/JARA'
+  : '';
+window.location.replace(base + '/explore/index.html');
 
       // Note: setLoading(false) is intentionally NOT called here.
       // The page is navigating away — keeping the button in loading
