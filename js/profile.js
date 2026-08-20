@@ -402,7 +402,192 @@ document.addEventListener('DOMContentLoaded', async () => {
   shareProfileBtn?.addEventListener('click', handleShare);
   shareBtn?.addEventListener('click', handleShare);
 
+/* ==========================================================
+     EDIT PROFILE SHEET
+  ========================================================== */
 
+  const editSheet        = document.getElementById('editSheet');
+  const editSheetBackdrop= document.getElementById('editSheetBackdrop');
+  const editSheetClose   = document.getElementById('editSheetClose');
+  const editSheetAlert   = document.getElementById('editSheetAlert');
+  const editSheetAlertText = document.getElementById('editSheetAlertText');
+  const editSheetSuccess = document.getElementById('editSheetSuccess');
+  const editProfileForm  = document.getElementById('editProfileForm');
+  const editSheetSave    = document.getElementById('editSheetSave');
+  const editAvatarPreview= document.getElementById('editAvatarPreview');
+  const editAvatarFile   = document.getElementById('editAvatarFile');
+  const editFullName     = document.getElementById('editFullName');
+  const editBio          = document.getElementById('editBio');
+  const editBioCount     = document.getElementById('editBioCount');
+  const editPhone        = document.getElementById('editPhone');
+  const editWhatsapp     = document.getElementById('editWhatsapp');
+  const editBusinessName = document.getElementById('editBusinessName');
+  const editBusinessNameField = document.getElementById('editBusinessNameField');
+  const editBusinessDesc = document.getElementById('editBusinessDesc');
+  const editBusinessDescField = document.getElementById('editBusinessDescField');
+  const editLocation     = document.getElementById('editLocation');
+
+  let editAvatarNewFile  = null;
+
+  function openEditSheet() {
+    const profile = JARAProfile.get();
+    if (!profile) return;
+
+    // Pre-fill all fields with current values
+    if (editFullName)     editFullName.value     = profile.full_name            || '';
+    if (editBio)          editBio.value          = profile.bio                  || '';
+    if (editBioCount)     editBioCount.textContent = (profile.bio || '').length;
+    if (editPhone)        editPhone.value        = profile.phone                || '';
+    if (editWhatsapp)     editWhatsapp.value     = profile.whatsapp             || '';
+    if (editBusinessName) editBusinessName.value = profile.business_name        || '';
+    if (editBusinessDesc) editBusinessDesc.value = profile.business_description || '';
+    if (editLocation)     editLocation.value     = profile.location             || '';
+
+    // Show business fields only for sellers
+    const isSeller = profile.account_type === 'business';
+    if (editBusinessNameField) editBusinessNameField.hidden = !isSeller;
+    if (editBusinessDescField) editBusinessDescField.hidden = !isSeller;
+
+    // Render current avatar in sheet
+    if (editAvatarPreview) {
+      const url = JARAProfile.getAvatarUrl(profile);
+      if (url) {
+        editAvatarPreview.innerHTML =
+          `<img src="${url}" alt="Current profile photo" />`;
+      } else {
+        editAvatarPreview.textContent = JARAProfile.getInitials(profile);
+      }
+    }
+
+    // Reset state
+    editAvatarNewFile = null;
+    if (editSheetAlert)   editSheetAlert.hidden   = true;
+    if (editSheetSuccess) editSheetSuccess.hidden = true;
+
+    // Open sheet
+    editSheet.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+    editFullName?.focus();
+  }
+
+  function closeEditSheet() {
+    editSheet?.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+  }
+
+  // Open triggers
+  const editProfileBtn = document.getElementById('editProfileBtn');
+  const editProfileItem = document.getElementById('editProfileItem');
+
+  editProfileBtn?.addEventListener('click',  e => { e.preventDefault(); openEditSheet(); });
+  editProfileItem?.addEventListener('click', e => { e.preventDefault(); openEditSheet(); });
+  editAvatarBtn?.addEventListener('click', openEditSheet);
+
+  // Close triggers
+  editSheetClose?.addEventListener('click',    closeEditSheet);
+  editSheetBackdrop?.addEventListener('click', closeEditSheet);
+
+  // Bio char counter
+  editBio?.addEventListener('input', () => {
+    if (editBioCount) editBioCount.textContent = editBio.value.length;
+  });
+
+  // Avatar file preview
+  editAvatarFile?.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showEditAlert('Photo is too large. Maximum 5 MB.');
+      return;
+    }
+    editAvatarNewFile = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      if (editAvatarPreview) {
+        editAvatarPreview.innerHTML =
+          `<img src="${ev.target.result}" alt="New profile photo" />`;
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function showEditAlert(msg) {
+    if (!editSheetAlert || !editSheetAlertText) return;
+    editSheetAlertText.textContent = msg;
+    editSheetAlert.hidden   = false;
+    editSheetSuccess.hidden = true;
+  }
+
+  function setEditLoading(on) {
+    if (!editSheetSave) return;
+    editSheetSave.disabled = on;
+    const label   = editSheetSave.querySelector('.edit-sheet__save-label');
+    const spinner = editSheetSave.querySelector('.edit-sheet__save-spinner');
+    if (label)   label.hidden   = on;
+    if (spinner) spinner.hidden = !on;
+  }
+
+  // Form submit
+  editProfileForm?.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (editSheetAlert)   editSheetAlert.hidden   = true;
+    if (editSheetSuccess) editSheetSuccess.hidden = true;
+
+    const name = editFullName?.value.trim() || '';
+    if (!name) {
+      showEditAlert('Please enter your full name.');
+      editFullName?.focus();
+      return;
+    }
+
+    setEditLoading(true);
+
+    try {
+      // Upload new avatar if selected
+      if (editAvatarNewFile) {
+        const { error: avatarError } = await JARAProfile.uploadAvatar(editAvatarNewFile);
+        if (avatarError) {
+          showEditAlert('Photo upload failed: ' + avatarError.message);
+          setEditLoading(false);
+          return;
+        }
+      }
+
+      // Build update payload
+      const payload = {
+        full_name:            editFullName?.value.trim()       || null,
+        bio:                  editBio?.value.trim()            || null,
+        phone:                editPhone?.value.trim()          || null,
+        whatsapp:             editWhatsapp?.value.trim()       || null,
+        location:             editLocation?.value.trim()       || null,
+        business_name:        editBusinessName?.value.trim()   || null,
+        business_description: editBusinessDesc?.value.trim()   || null,
+      };
+
+      const { data: updated, error } = await JARAProfile.update(payload);
+
+      if (error) {
+        showEditAlert('Failed to save: ' + error.message);
+        setEditLoading(false);
+        return;
+      }
+
+      // Re-render profile with updated data
+      renderProfile(updated);
+
+      // Show success
+      if (editSheetSuccess) editSheetSuccess.hidden = false;
+      setEditLoading(false);
+
+      // Auto-close after 1.5 seconds
+      setTimeout(closeEditSheet, 1500);
+
+    } catch (err) {
+      console.error('Edit profile error:', err.message);
+      showEditAlert('An unexpected error occurred. Please try again.');
+      setEditLoading(false);
+    }
+  });
   /* ==========================================================
      LOGOUT
   ========================================================== */
