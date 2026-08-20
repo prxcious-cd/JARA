@@ -56,11 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
     { icon:'fa-solid fa-star',                cls:'gold',   title:'Future PRO Features',      desc:'Every new premium feature ships to PRO members first, for life.', wide:true },
   ];
 
-  const PLANS = [
-    {
   /* ── Pricing — single source of truth ── */
   const PRO_PRICE_MONTHLY = 1000;
-  const PRO_PRICE_YEARLY  = 10000;  // ₦1,000 × 12 = ₦12,000 minus ₦2,000 discount
+  const PRO_PRICE_YEARLY  = 10000;
 
   const PLANS = [
     {
