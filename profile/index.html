@@ -269,7 +269,126 @@
 
     </section>
 
+<!-- ======================================================
+       EDIT PROFILE SHEET
+       Bottom sheet — shown when user taps Edit Profile.
+  ====================================================== -->
+  <div class="edit-sheet" id="editSheet" hidden aria-modal="true" role="dialog" aria-label="Edit profile">
+    <div class="edit-sheet__backdrop" id="editSheetBackdrop"></div>
+    <div class="edit-sheet__panel">
+      <div class="edit-sheet__handle" aria-hidden="true"></div>
 
+      <div class="edit-sheet__header">
+        <h2 class="edit-sheet__title">Edit Profile</h2>
+        <button class="edit-sheet__close" id="editSheetClose" type="button" aria-label="Close">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <!-- Alert -->
+      <div class="edit-sheet__alert" id="editSheetAlert" role="alert" hidden>
+        <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+        <span id="editSheetAlertText"></span>
+      </div>
+
+      <!-- Success -->
+      <div class="edit-sheet__success" id="editSheetSuccess" role="status" hidden>
+        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+        <span>Profile updated successfully.</span>
+      </div>
+
+      <form class="edit-sheet__form" id="editProfileForm" novalidate>
+
+        <!-- Avatar upload -->
+        <div class="edit-sheet__avatar-wrap">
+          <div class="edit-sheet__avatar" id="editAvatarPreview">
+            <!-- Populated by JS with current avatar or initials -->
+          </div>
+          <label class="edit-sheet__avatar-label" for="editAvatarFile">
+            <i class="fa-solid fa-camera" aria-hidden="true"></i>
+            Change photo
+            <input type="file" id="editAvatarFile" accept="image/jpeg,image/png,image/webp"
+                   class="edit-sheet__avatar-input" aria-label="Upload new profile photo" />
+          </label>
+        </div>
+
+        <div class="edit-sheet__fields">
+
+          <!-- Full name -->
+          <div class="edit-sheet__field">
+            <label class="edit-sheet__label" for="editFullName">Full name</label>
+            <input class="edit-sheet__input" type="text" id="editFullName"
+                   placeholder="Your full name" autocomplete="name" />
+          </div>
+
+          <!-- Bio -->
+          <div class="edit-sheet__field">
+            <label class="edit-sheet__label" for="editBio">
+              Bio <span class="edit-sheet__optional">(optional)</span>
+            </label>
+            <textarea class="edit-sheet__input edit-sheet__textarea" id="editBio"
+                      placeholder="Tell people about yourself…"
+                      rows="3" maxlength="500"></textarea>
+            <p class="edit-sheet__char-count">
+              <span id="editBioCount">0</span> / 500
+            </p>
+          </div>
+
+          <!-- Phone -->
+          <div class="edit-sheet__field">
+            <label class="edit-sheet__label" for="editPhone">Phone number</label>
+            <input class="edit-sheet__input" type="tel" id="editPhone"
+                   placeholder="08012345678" inputmode="tel" />
+          </div>
+
+          <!-- WhatsApp -->
+          <div class="edit-sheet__field">
+            <label class="edit-sheet__label" for="editWhatsapp">
+              WhatsApp <span class="edit-sheet__optional">(optional)</span>
+            </label>
+            <input class="edit-sheet__input" type="tel" id="editWhatsapp"
+                   placeholder="08012345678" inputmode="tel" />
+          </div>
+
+          <!-- Business name (shown only for sellers) -->
+          <div class="edit-sheet__field" id="editBusinessNameField" hidden>
+            <label class="edit-sheet__label" for="editBusinessName">Business name</label>
+            <input class="edit-sheet__input" type="text" id="editBusinessName"
+                   placeholder="Your business name" />
+          </div>
+
+          <!-- Business description (shown only for sellers) -->
+          <div class="edit-sheet__field" id="editBusinessDescField" hidden>
+            <label class="edit-sheet__label" for="editBusinessDesc">
+              Business description <span class="edit-sheet__optional">(optional)</span>
+            </label>
+            <textarea class="edit-sheet__input edit-sheet__textarea" id="editBusinessDesc"
+                      placeholder="What does your business offer?"
+                      rows="3" maxlength="500"></textarea>
+          </div>
+
+          <!-- Location -->
+          <div class="edit-sheet__field">
+            <label class="edit-sheet__label" for="editLocation">
+              Location <span class="edit-sheet__optional">(optional)</span>
+            </label>
+            <input class="edit-sheet__input" type="text" id="editLocation"
+                   placeholder="e.g. Redeemer's University, Ede" />
+          </div>
+
+        </div>
+
+        <!-- Save button -->
+        <button class="edit-sheet__save" id="editSheetSave" type="submit">
+          <span class="edit-sheet__save-label">Save Changes</span>
+          <span class="edit-sheet__save-spinner" aria-hidden="true" hidden>
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+          </span>
+        </button>
+
+      </form>
+    </div>
+  </div>
     <!-- ============================================================
          ACCOUNT SETTINGS
     ============================================================ -->
