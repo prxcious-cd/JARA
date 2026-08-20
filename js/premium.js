@@ -58,16 +58,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const PLANS = [
     {
+  /* ── Pricing — single source of truth ── */
+  const PRO_PRICE_MONTHLY = 1000;
+  const PRO_PRICE_YEARLY  = 10000;  // ₦1,000 × 12 = ₦12,000 minus ₦2,000 discount
+
+  const PLANS = [
+    {
       key:'monthly', period:'Monthly',
-      amount:2500, display:'₦2,500', per:'per month',
+      amount:PRO_PRICE_MONTHLY,
+      display:`₦${PRO_PRICE_MONTHLY.toLocaleString('en-NG')}`,
+      per:'per month',
       recommended:false, saving:null,
       perks:['All PRO features','Cancel by not renewing','Activated within 24 hours'],
     },
     {
       key:'yearly', period:'Yearly',
-      amount:25000, display:'₦25,000', per:'per year',
-      recommended:true, saving:'Save ₦5,000',
-      perks:['All PRO features','Only ₦2,083/month','Founding PRO status','Activated within 24 hours'],
+      amount:PRO_PRICE_YEARLY,
+      display:`₦${PRO_PRICE_YEARLY.toLocaleString('en-NG')}`,
+      per:'per year',
+      recommended:true,
+      saving:`Save ₦${(PRO_PRICE_MONTHLY * 12 - PRO_PRICE_YEARLY).toLocaleString('en-NG')}`,
+      perks:[
+        'All PRO features',
+        `Only ₦${Math.round(PRO_PRICE_YEARLY / 12).toLocaleString('en-NG')}/month`,
+        'Founding PRO status',
+        'Activated within 24 hours',
+      ],
     },
   ];
 
