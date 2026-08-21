@@ -475,13 +475,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.style.overflow = '';
   }
 
-  // Open triggers
-  const editProfileBtn = document.getElementById('editProfileBtn');
-  const editProfileItem = document.getElementById('editProfileItem');
-
-  editProfileBtn?.addEventListener('click',  e => { e.preventDefault(); openEditSheet(); });
-  editProfileItem?.addEventListener('click', e => { e.preventDefault(); openEditSheet(); });
-  editAvatarBtn?.addEventListener('click', openEditSheet);
+  // Open triggers — use querySelector to avoid duplicate const declarations
+  document.getElementById('editProfileBtn')
+    ?.addEventListener('click',  e => { e.preventDefault(); openEditSheet(); });
+  document.getElementById('editProfileItem')
+    ?.addEventListener('click', e => { e.preventDefault(); openEditSheet(); });
+  document.getElementById('editAvatarBtn')
+    ?.addEventListener('click', e => { e.preventDefault(); openEditSheet(); });
 
   // Close triggers
   editSheetClose?.addEventListener('click',    closeEditSheet);
