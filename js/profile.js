@@ -722,6 +722,5 @@ async function loadListingsTab(userId) {
     }
   }
 
-  init();
-   
+  init(); 
 });
