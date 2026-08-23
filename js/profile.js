@@ -233,48 +233,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   ========================================================== */
 
   async function loadStats(userId) {
-    /*
-     FUTURE: Run these counts in parallel:
+    try {
+      const sb = window._supabase;
+      if (!sb) return;
 
-       const [listingsRes, requestsRes, repliesRes, savedRes] =
-         await Promise.all([
-           window._supabase.from('listings')
-             .select('id', { count: 'exact', head: true })
-             .eq('owner_id', userId)
-             .eq('status', 'active'),
+      // Run all counts in parallel
+      const [listingsRes, requestsRes, savedRes] = await Promise.all([
+        sb.from('listings')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', userId)
+          .eq('status', 'active'),
 
-           window._supabase.from('requests')
-             .select('id', { count: 'exact', head: true })
-             .eq('owner_id', userId),
+        sb.from('listings')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', userId)
+          .eq('listing_type', 'request')
+          .eq('status', 'active'),
 
-           window._supabase.from('replies')       -- if table exists
-             .select('id', { count: 'exact', head: true })
-             .eq('responder_id', userId),
+        sb.from('favorites')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId),
+      ]);
 
-           window._supabase.from('favorites')
-             .select('id', { count: 'exact', head: true })
-             .eq('user_id', userId),
-         ]);
+      const listingCount = listingsRes.count || 0;
+      const requestCount = requestsRes.count || 0;
+      const savedCount   = savedRes.count   || 0;
 
-       if (statListings) statListings.textContent = listingsRes.count ?? 0;
-       if (statRequests) statRequests.textContent = requestsRes.count ?? 0;
-       if (statReplies)  statReplies.textContent  = repliesRes.count  ?? 0;
-       if (statSaved)    statSaved.textContent    = savedRes.count    ?? 0;
-    */
+      if (statListings) {
+        statListings.textContent = listingCount;
+        statListings.classList.remove('skeleton-pulse');
+      }
+      if (statRequests) {
+        statRequests.textContent = requestCount;
+        statRequests.classList.remove('skeleton-pulse');
+      }
+      if (statReplies) {
+        statReplies.textContent = 0;
+        statReplies.classList.remove('skeleton-pulse');
+      }
+      if (statSaved) {
+        statSaved.textContent = savedCount;
+        statSaved.classList.remove('skeleton-pulse');
+      }
+      if (statViews) {
+        statViews.textContent = 0;
+        statViews.classList.remove('skeleton-pulse');
+      }
 
-    // Placeholder counts until listings integration is confirmed
-    if (statListings) statListings.textContent = '0';
-    if (statRequests) statRequests.textContent = '0';
-    if (statReplies)  statReplies.textContent  = '0';
-    if (statSaved)    statSaved.textContent    = '0';
-    if (statViews)    statViews.textContent    = '0';
-
-    // Remove skeleton pulse from stat values
-    [statListings, statRequests, statReplies, statSaved, statViews]
-      .forEach(el => el?.classList.remove('skeleton-pulse'));
-  }
-
-
+    } catch (err) {
+      console.error('Profile: loadStats error:', err.message);
+      [statListings, statRequests, statReplies, statSaved, statViews]
+        .forEach(el => { if (el) { el.textContent = '0'; el.classList.remove('skeleton-pulse'); } });
+    }
+     }
   /* ==========================================================
      LOAD CONTENT TABS
   ========================================================== */
