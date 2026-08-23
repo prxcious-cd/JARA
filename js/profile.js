@@ -289,9 +289,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ==========================================================
      LOAD CONTENT TABS
   ========================================================== */
-
-  function loadListingsTab(userId) {
-    if (!listingsGrid) return;
 async function loadListingsTab(userId) {
     if (!listingsGrid) return;
 
