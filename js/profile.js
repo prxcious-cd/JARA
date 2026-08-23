@@ -292,63 +292,102 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function loadListingsTab(userId) {
     if (!listingsGrid) return;
+async function loadListingsTab(userId) {
+    if (!listingsGrid) return;
 
-    /*
-     FUTURE: SELECT * FROM listings
-             WHERE owner_id = userId
-             ORDER BY created_at DESC
-    */
-
-    if (window.jaraEmpty) {
-      window.jaraEmpty(listingsGrid, {
-        icon:     'fa-solid fa-box-open',
-        title:    'No listings yet',
-        body:     'Create your first listing and start selling on campus.',
-        btnLabel: 'Create Listing',
-        btnHref:  '../sell/index.html',
+    try {
+      const { data, error } = await JARAListings.fetch({
+        ownerId:   userId,
+        status:    'active',
+        orderBy:   'created_at',
+        ascending: false,
+        limit:     20,
+        offset:    0,
       });
-    }
-  }
 
-  function loadRequestsTab(userId) {
-    if (!requestsList) return;
+      listingsGrid.innerHTML = '';
 
-    /*
-     FUTURE: SELECT * FROM requests
-             WHERE owner_id = userId
-             ORDER BY created_at DESC
-    */
+      if (error || !data || data.length === 0) {
+        if (window.jaraEmpty) {
+          window.jaraEmpty(listingsGrid, {
+            icon:     'fa-solid fa-box-open',
+            title:    'No listings yet',
+            body:     'Create your first listing and start selling on campus.',
+            btnLabel: 'Create Listing',
+            btnHref:  '../sell/index.html',
+          });
+        }
+        return;
+      }
 
-    if (window.jaraEmpty) {
-      window.jaraEmpty(requestsList, {
-        icon:  'fa-solid fa-bullhorn',
-        title: 'No requests yet',
-        body:  'Post a request when you need something on campus.',
+      // Inject grid CSS if not already present
+      if (!document.getElementById('profile-listings-grid-style')) {
+        const style = document.createElement('style');
+        style.id = 'profile-listings-grid-style';
+        style.textContent = `
+          .profile-listings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.875rem;
+            padding: 0.5rem 0;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'profile-listings-grid';
+
+      data.forEach(listing => {
+        const cover = JARAListings.getCoverImage(listing);
+        const price = JARAListings.formatPrice(listing);
+
+        const card = document.createElement('a');
+        card.className = 'store-card j-card';
+        card.href      = `../listing/index.html?id=${esc(listing.id)}`;
+        card.setAttribute('role', 'listitem');
+        card.setAttribute('aria-label', listing.title);
+
+        card.innerHTML = `
+          <div class="store-card__image">
+            ${cover
+              ? `<img src="${esc(cover)}" alt="${esc(listing.title)}" loading="lazy" />`
+              : `<i class="fa-solid fa-image" aria-hidden="true"></i>`
+            }
+            <span class="store-card__dot store-card__dot--active"></span>
+          </div>
+          <div class="store-card__body">
+            <p class="store-card__title">${esc(listing.title)}</p>
+            <p class="store-card__price">${esc(price)}</p>
+            <p class="store-card__views">
+              <i class="fa-solid fa-eye" aria-hidden="true"></i>
+              ${listing.view_count || 0}
+            </p>
+          </div>
+          <a class="store-card__edit"
+             href="../sell/index.html?edit=${esc(listing.id)}"
+             aria-label="Edit listing"
+             onclick="event.stopPropagation()">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i>
+          </a>
+        `;
+
+        grid.appendChild(card);
       });
+
+      listingsGrid.appendChild(grid);
+
+    } catch (err) {
+      console.error('Profile: loadListingsTab error:', err.message);
+      if (window.jaraEmpty) {
+        window.jaraEmpty(listingsGrid, {
+          icon:  'fa-solid fa-box-open',
+          title: 'Could not load listings',
+          body:  'Please check your connection and try again.',
+        });
+      }
     }
-  }
-
-  function loadRepliesTab(userId) {
-    if (!repliesList) return;
-
-    /*
-     FUTURE: SELECT r.*, req.title AS request_title
-             FROM replies r
-             JOIN requests req ON req.id = r.request_id
-             WHERE r.responder_id = userId
-             ORDER BY r.created_at DESC
-    */
-
-    if (window.jaraEmpty) {
-      window.jaraEmpty(repliesList, {
-        icon:  'fa-solid fa-reply',
-        title: 'No replies yet',
-        body:  'Your replies to campus requests will appear here.',
-      });
-    }
-  }
-
-
+}
   /* ==========================================================
      TAB SWITCHING
   ========================================================== */
