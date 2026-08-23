@@ -278,9 +278,10 @@
 
       const userId = session.user.id;
 
-      /* ---- Build storage path ---- */
-      const ext      = file.name.split('.').pop().toLowerCase();
-      const filePath = `${userId}/avatar.${ext}`;
+      // Always use .jpg extension regardless of source format
+      // This ensures upsert always hits the same path and never
+      // leaves orphaned files from different extension uploads.
+      const filePath = `${userId}/avatar.jpg`;
 
       /* ---- Upload to Supabase Storage ---- */
       /*
