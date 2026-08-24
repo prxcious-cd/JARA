@@ -729,8 +729,9 @@ async function loadListingsTab(userId) {
 
       // Get userId for stats + content tabs
       const userId = profile.id;
-      loadStats(userId);
-      loadListingsTab(userId);
+      // Run tab loaders independently so errors don't crash init
+      loadStats(userId).catch(e => console.error('Stats error:', e));
+      loadListingsTab(userId).catch(e => console.error('Listings tab error:', e));
       loadRequestsTab(userId);
       loadRepliesTab(userId);
 
