@@ -384,6 +384,27 @@ async function loadListingsTab(userId) {
         });
       }
     }
+   function loadRequestsTab(userId) {
+    if (!requestsList) return;
+    if (window.jaraEmpty) {
+      window.jaraEmpty(requestsList, {
+        icon:  'fa-solid fa-bullhorn',
+        title: 'No requests yet',
+        body:  'Post a request when you need something on campus.',
+      });
+    }
+  }
+
+  function loadRepliesTab(userId) {
+    if (!repliesList) return;
+    if (window.jaraEmpty) {
+      window.jaraEmpty(repliesList, {
+        icon:  'fa-solid fa-reply',
+        title: 'No replies yet',
+        body:  'Your replies to campus requests will appear here.',
+      });
+    }
+  }
 }
   /* ==========================================================
      TAB SWITCHING
