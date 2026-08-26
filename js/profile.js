@@ -679,6 +679,27 @@ async function loadListingsTab(userId) {
     if (profileSub)  profileSub.classList.remove('profile-sub--hidden');
   }
 
+   function loadRequestsTab(userId) {
+    if (!requestsList) return;
+    if (window.jaraEmpty) {
+      window.jaraEmpty(requestsList, {
+        icon:  'fa-solid fa-bullhorn',
+        title: 'No requests yet',
+        body:  'Post a request when you need something on campus.',
+      });
+    }
+  }
+
+  function loadRepliesTab(userId) {
+    if (!repliesList) return;
+    if (window.jaraEmpty) {
+      window.jaraEmpty(repliesList, {
+        icon:  'fa-solid fa-reply',
+        title: 'No replies yet',
+        body:  'Your replies to campus requests will appear here.',
+      });
+    }
+  }
 
   /* ==========================================================
      UTILITIES
@@ -734,8 +755,9 @@ async function loadListingsTab(userId) {
       loadListingsTab(userId).catch(e => console.error('Listings tab error:', e));
       loadRequestsTab(userId);
       loadRepliesTab(userId);
-} catch (err) {
-      alert('Profile error: ' + err.message + ' | ' + err.stack?.split('\n')[1]);
+
+       } catch (err) {
+      console.error('Profile page error:', err.message);
       showError();
     }
   }
