@@ -382,8 +382,9 @@ async function loadListingsTab(userId) {
           title: 'Could not load listings',
           body:  'Please check your connection and try again.',
         });
-      }
-    }
+       }
+     }
+   }
    function loadRequestsTab(userId) {
     if (!requestsList) return;
     if (window.jaraEmpty) {
