@@ -735,7 +735,7 @@ async function loadListingsTab(userId) {
       loadRequestsTab(userId);
       loadRepliesTab(userId);
 
-     catch (err) {
+    } catch (err) {
       console.error('Profile page error:', err.message);
       showError();
     }
