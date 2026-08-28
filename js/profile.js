@@ -6,6 +6,7 @@
      - window._supabase    (supabase-client.js — loaded in <head>)
      - window.JARAAuth     (auth-guard.js)
      - window.JARAProfile  (jara-profile.js)
+     - window.JARAListings (jara-listings.js)
      - HTML IDs in profile/index.html
 
    All getElementById calls verified against profile/index.html.
@@ -64,41 +65,55 @@ document.addEventListener('DOMContentLoaded', async () => {
   const verificationSub = document.getElementById('verificationSub');
   const logoutBtn       = document.getElementById('logoutBtn');
 
+  // Edit sheet
+  const editSheet         = document.getElementById('editSheet');
+  const editSheetBackdrop = document.getElementById('editSheetBackdrop');
+  const editSheetClose    = document.getElementById('editSheetClose');
+  const editSheetAlert    = document.getElementById('editSheetAlert');
+  const editSheetAlertText= document.getElementById('editSheetAlertText');
+  const editSheetSuccess  = document.getElementById('editSheetSuccess');
+  const editProfileForm   = document.getElementById('editProfileForm');
+  const editSheetSave     = document.getElementById('editSheetSave');
+  const editAvatarPreview = document.getElementById('editAvatarPreview');
+  const editAvatarFile    = document.getElementById('editAvatarFile');
+  const editFullName      = document.getElementById('editFullName');
+  const editBio           = document.getElementById('editBio');
+  const editBioCount      = document.getElementById('editBioCount');
+  const editPhone         = document.getElementById('editPhone');
+  const editWhatsapp      = document.getElementById('editWhatsapp');
+  const editBusinessName  = document.getElementById('editBusinessName');
+  const editBusinessNameField = document.getElementById('editBusinessNameField');
+  const editBusinessDesc  = document.getElementById('editBusinessDesc');
+  const editBusinessDescField = document.getElementById('editBusinessDescField');
+  const editLocation      = document.getElementById('editLocation');
+
+  let editAvatarNewFile = null;
+
 
   /* ==========================================================
      SKELETON HELPERS
   ========================================================== */
 
-  function showSkeletons() {
-    avatarSkeleton?.classList.remove('skeleton-pulse--hidden');
-    nameSkeleton?.classList.remove('profile-skeleton--hidden');
-    subSkeleton?.classList.remove('profile-skeleton--hidden');
-  }
-
   function hideSkeletons() {
-    // Hide skeleton elements
-    if (avatarSkeleton) avatarSkeleton.style.display = 'none';
-    if (nameSkeleton)   nameSkeleton.style.display   = 'none';
+    if (avatarSkeleton) avatarSkeleton.style.display  = 'none';
+    if (nameSkeleton)   nameSkeleton.style.display    = 'none';
     if (subSkeleton)    subSkeleton.style.display     = 'none';
-
-    // Show real content
-    if (avatarEl)    avatarEl.classList.remove('profile-avatar--hidden');
-    if (profileName) profileName.classList.remove('profile-name--hidden');
-    if (profileSub)  profileSub.classList.remove('profile-sub--hidden');
+    if (avatarEl)       avatarEl.classList.remove('profile-avatar--hidden');
+    if (profileName)    profileName.classList.remove('profile-name--hidden');
+    if (profileSub)     profileSub.classList.remove('profile-sub--hidden');
   }
 
 
   /* ==========================================================
      RENDER PROFILE
-     Maps every profile field to the correct HTML element.
   ========================================================== */
 
   function renderProfile(profile) {
-    /* ---- Avatar ---- */
-    const avatarUrl  = JARAProfile.getAvatarUrl(profile);
-    const initials   = JARAProfile.getInitials(profile);
+    const avatarUrl   = JARAProfile.getAvatarUrl(profile);
+    const initials    = JARAProfile.getInitials(profile);
     const displayName = JARAProfile.getDisplayName(profile);
 
+    /* ---- Avatar ---- */
     if (avatarEl) {
       if (avatarUrl) {
         avatarEl.innerHTML = `
@@ -113,16 +128,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     /* ---- PRO ring ---- */
-    if (proRing) {
-      proRing.hidden = !JARAProfile.isPro(profile);
-    }
+    if (proRing) proRing.hidden = !JARAProfile.isPro(profile);
 
     /* ---- Name ---- */
-    if (profileName) {
-      profileName.textContent = displayName || 'JARA Member';
-    }
+    if (profileName) profileName.textContent = displayName || 'JARA Member';
 
-    /* ---- Sub (username + account type) ---- */
+    /* ---- Sub ---- */
     if (profileSub) {
       const parts = [];
       if (profile.username)     parts.push('@' + profile.username);
@@ -131,9 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     /* ---- Verified mark ---- */
-    if (verifiedMark) {
-      verifiedMark.hidden = !profile.is_verified;
-    }
+    if (verifiedMark) verifiedMark.hidden = !profile.is_verified;
 
     /* ---- Badges ---- */
     if (profileBadges) {
@@ -143,9 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (JARAProfile.isFounder(profile)) {
         badges.push(`
           <span class="profile-badge profile-badge--founding"
-                id="foundingBadgeBtn"
-                role="button"
-                tabindex="0"
+                id="foundingBadgeBtn" role="button" tabindex="0"
                 aria-label="Founding Member — tap to learn more">
             🏆 Founding Member '26
           </span>
@@ -163,39 +170,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (badges.length > 0) {
         profileBadges.innerHTML = badges.join('');
         profileBadges.removeAttribute('hidden');
-
-        // Wire founding badge modal via jara-polish.js
         window.__JARA_IS_FOUNDER = JARAProfile.isFounder(profile);
         window.__JARA_IS_PRO     = JARAProfile.isPro(profile);
 
-        // Founding badge tap → open modal
-        const foundingBtn = document.getElementById('foundingBadgeBtn');
-        foundingBtn?.addEventListener('click', () => {
-          window.openFoundingModal?.();
-        });
-        foundingBtn?.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') window.openFoundingModal?.();
-        });
+        document.getElementById('foundingBadgeBtn')
+          ?.addEventListener('click', () => window.openFoundingModal?.());
       }
     }
 
     /* ---- School + Joined ---- */
     if (profileSchool) {
-      const schoolSpan = profileSchool.querySelector('span');
-      if (schoolSpan) schoolSpan.textContent = profile.school || '';
+      const span = profileSchool.querySelector('span');
+      if (span) span.textContent = profile.school || '';
       profileSchool.style.display = profile.school ? '' : 'none';
     }
 
-    if (profileJoined) {
-      const joinedSpan = profileJoined.querySelector('span');
-      if (joinedSpan && profile.created_at) {
-        joinedSpan.textContent = 'Joined ' + fmtDate(profile.created_at);
-      }
+    if (profileJoined && profile.created_at) {
+      const span = profileJoined.querySelector('span');
+      if (span) span.textContent = 'Joined ' + fmtDate(profile.created_at);
     }
 
-    if (profileContext) {
-      profileContext.removeAttribute('hidden');
-    }
+    if (profileContext) profileContext.removeAttribute('hidden');
 
     /* ---- Bio ---- */
     if (profileBio) {
@@ -207,29 +202,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    /* ---- Verification status in settings ---- */
+    /* ---- Verification status ---- */
     if (verificationSub) {
-      verificationSub.textContent = profile.is_verified
-        ? 'Verified ✓'
-        : 'Not yet verified';
+      verificationSub.textContent = profile.is_verified ? 'Verified ✓' : 'Not yet verified';
     }
 
-    /* ---- Upgrade button — hide if already PRO or founder ---- */
+    /* ---- Upgrade button ---- */
     if (upgradeBtn) {
       upgradeBtn.hidden = JARAProfile.isPro(profile) || JARAProfile.isFounder(profile);
       upgradeBtn.href   = '../premium/index.html';
-    }
-
-    /* ---- Edit profile button ---- */
-    if (editProfileBtn) {
-      editProfileBtn.href = '#edit-profile';
     }
   }
 
 
   /* ==========================================================
      LOAD STATS
-     Counts listings, requests, replies from Supabase.
   ========================================================== */
 
   async function loadStats(userId) {
@@ -237,7 +224,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       const sb = window._supabase;
       if (!sb) return;
 
-      // Run all counts in parallel
       const [listingsRes, requestsRes, savedRes] = await Promise.all([
         sb.from('listings')
           .select('id', { count: 'exact', head: true })
@@ -255,41 +241,25 @@ document.addEventListener('DOMContentLoaded', async () => {
           .eq('user_id', userId),
       ]);
 
-      const listingCount = listingsRes.count || 0;
-      const requestCount = requestsRes.count || 0;
-      const savedCount   = savedRes.count   || 0;
-
-      if (statListings) {
-        statListings.textContent = listingCount;
-        statListings.classList.remove('skeleton-pulse');
-      }
-      if (statRequests) {
-        statRequests.textContent = requestCount;
-        statRequests.classList.remove('skeleton-pulse');
-      }
-      if (statReplies) {
-        statReplies.textContent = 0;
-        statReplies.classList.remove('skeleton-pulse');
-      }
-      if (statSaved) {
-        statSaved.textContent = savedCount;
-        statSaved.classList.remove('skeleton-pulse');
-      }
-      if (statViews) {
-        statViews.textContent = 0;
-        statViews.classList.remove('skeleton-pulse');
-      }
+      if (statListings) { statListings.textContent = listingsRes.count || 0; statListings.classList.remove('skeleton-pulse'); }
+      if (statRequests) { statRequests.textContent = requestsRes.count || 0; statRequests.classList.remove('skeleton-pulse'); }
+      if (statReplies)  { statReplies.textContent  = 0; statReplies.classList.remove('skeleton-pulse'); }
+      if (statSaved)    { statSaved.textContent    = savedRes.count || 0; statSaved.classList.remove('skeleton-pulse'); }
+      if (statViews)    { statViews.textContent    = 0; statViews.classList.remove('skeleton-pulse'); }
 
     } catch (err) {
       console.error('Profile: loadStats error:', err.message);
       [statListings, statRequests, statReplies, statSaved, statViews]
         .forEach(el => { if (el) { el.textContent = '0'; el.classList.remove('skeleton-pulse'); } });
     }
-     }
+  }
+
+
   /* ==========================================================
      LOAD CONTENT TABS
   ========================================================== */
-async function loadListingsTab(userId) {
+
+  async function loadListingsTab(userId) {
     if (!listingsGrid) return;
 
     try {
@@ -317,7 +287,6 @@ async function loadListingsTab(userId) {
         return;
       }
 
-      // Inject grid CSS if not already present
       if (!document.getElementById('profile-listings-grid-style')) {
         const style = document.createElement('style');
         style.id = 'profile-listings-grid-style';
@@ -382,10 +351,11 @@ async function loadListingsTab(userId) {
           title: 'Could not load listings',
           body:  'Please check your connection and try again.',
         });
-       }
-     }
-   }
-   function loadRequestsTab(userId) {
+      }
+    }
+  }
+
+  function loadRequestsTab(userId) {
     if (!requestsList) return;
     if (window.jaraEmpty) {
       window.jaraEmpty(requestsList, {
@@ -406,7 +376,8 @@ async function loadListingsTab(userId) {
       });
     }
   }
-}
+
+
   /* ==========================================================
      TAB SWITCHING
   ========================================================== */
@@ -417,9 +388,8 @@ async function loadListingsTab(userId) {
   function activateTab(index) {
     tabs.forEach((tab, i) => {
       if (!tab) return;
-      const isActive = i === index;
-      tab.classList.toggle('content-tab--active', isActive);
-      tab.setAttribute('aria-selected', String(isActive));
+      tab.classList.toggle('content-tab--active', i === index);
+      tab.setAttribute('aria-selected', String(i === index));
     });
     panels.forEach((panel, i) => {
       if (!panel) return;
@@ -432,7 +402,6 @@ async function loadListingsTab(userId) {
   tabRequests?.addEventListener('click', () => activateTab(1));
   tabReplies?.addEventListener('click',  () => activateTab(2));
 
-  // Stat cards also switch tabs
   document.querySelectorAll('.stat-card[data-tab]').forEach(card => {
     card.addEventListener('click', () => {
       const tab = card.dataset.tab;
@@ -446,9 +415,6 @@ async function loadListingsTab(userId) {
   /* ==========================================================
      SHARE PROFILE
   ========================================================== */
-
-  const shareProfileBtn = document.getElementById('shareProfileBtn');
-  const shareBtn        = document.getElementById('shareBtn');
 
   function handleShare() {
     const profile = JARAProfile.get();
@@ -468,41 +434,18 @@ async function loadListingsTab(userId) {
     }
   }
 
-  shareProfileBtn?.addEventListener('click', handleShare);
-  shareBtn?.addEventListener('click', handleShare);
+  document.getElementById('shareProfileBtn')?.addEventListener('click', handleShare);
+  document.getElementById('shareBtn')?.addEventListener('click', handleShare);
 
-/* ==========================================================
+
+  /* ==========================================================
      EDIT PROFILE SHEET
   ========================================================== */
-
-  const editSheet        = document.getElementById('editSheet');
-  const editSheetBackdrop= document.getElementById('editSheetBackdrop');
-  const editSheetClose   = document.getElementById('editSheetClose');
-  const editSheetAlert   = document.getElementById('editSheetAlert');
-  const editSheetAlertText = document.getElementById('editSheetAlertText');
-  const editSheetSuccess = document.getElementById('editSheetSuccess');
-  const editProfileForm  = document.getElementById('editProfileForm');
-  const editSheetSave    = document.getElementById('editSheetSave');
-  const editAvatarPreview= document.getElementById('editAvatarPreview');
-  const editAvatarFile   = document.getElementById('editAvatarFile');
-  const editFullName     = document.getElementById('editFullName');
-  const editBio          = document.getElementById('editBio');
-  const editBioCount     = document.getElementById('editBioCount');
-  const editPhone        = document.getElementById('editPhone');
-  const editWhatsapp     = document.getElementById('editWhatsapp');
-  const editBusinessName = document.getElementById('editBusinessName');
-  const editBusinessNameField = document.getElementById('editBusinessNameField');
-  const editBusinessDesc = document.getElementById('editBusinessDesc');
-  const editBusinessDescField = document.getElementById('editBusinessDescField');
-  const editLocation     = document.getElementById('editLocation');
-
-  let editAvatarNewFile  = null;
 
   function openEditSheet() {
     const profile = JARAProfile.get();
     if (!profile) return;
 
-    // Pre-fill all fields with current values
     if (editFullName)     editFullName.value     = profile.full_name            || '';
     if (editBio)          editBio.value          = profile.bio                  || '';
     if (editBioCount)     editBioCount.textContent = (profile.bio || '').length;
@@ -512,29 +455,24 @@ async function loadListingsTab(userId) {
     if (editBusinessDesc) editBusinessDesc.value = profile.business_description || '';
     if (editLocation)     editLocation.value     = profile.location             || '';
 
-    // Show business fields only for sellers
     const isSeller = profile.account_type === 'business';
     if (editBusinessNameField) editBusinessNameField.hidden = !isSeller;
     if (editBusinessDescField) editBusinessDescField.hidden = !isSeller;
 
-    // Render current avatar in sheet
     if (editAvatarPreview) {
       const url = JARAProfile.getAvatarUrl(profile);
       if (url) {
-        editAvatarPreview.innerHTML =
-          `<img src="${url}" alt="Current profile photo" />`;
+        editAvatarPreview.innerHTML = `<img src="${esc(url)}" alt="Current profile photo" />`;
       } else {
         editAvatarPreview.textContent = JARAProfile.getInitials(profile);
       }
     }
 
-    // Reset state
     editAvatarNewFile = null;
     if (editSheetAlert)   editSheetAlert.hidden   = true;
     if (editSheetSuccess) editSheetSuccess.hidden = true;
 
-    // Open sheet
-    editSheet.removeAttribute('hidden');
+    editSheet?.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
     editFullName?.focus();
   }
@@ -544,7 +482,7 @@ async function loadListingsTab(userId) {
     document.body.style.overflow = '';
   }
 
-  // Open triggers — use querySelector to avoid duplicate const declarations
+  // Open triggers
   document.getElementById('editProfileBtn')
     ?.addEventListener('click',  e => { e.preventDefault(); openEditSheet(); });
   document.getElementById('editProfileItem')
@@ -561,7 +499,7 @@ async function loadListingsTab(userId) {
     if (editBioCount) editBioCount.textContent = editBio.value.length;
   });
 
-  // Avatar file preview
+  // Avatar preview
   editAvatarFile?.addEventListener('change', e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -573,8 +511,7 @@ async function loadListingsTab(userId) {
     const reader = new FileReader();
     reader.onload = ev => {
       if (editAvatarPreview) {
-        editAvatarPreview.innerHTML =
-          `<img src="${ev.target.result}" alt="New profile photo" />`;
+        editAvatarPreview.innerHTML = `<img src="${ev.target.result}" alt="New profile photo" />`;
       }
     };
     reader.readAsDataURL(file);
@@ -584,7 +521,7 @@ async function loadListingsTab(userId) {
     if (!editSheetAlert || !editSheetAlertText) return;
     editSheetAlertText.textContent = msg;
     editSheetAlert.hidden   = false;
-    editSheetSuccess.hidden = true;
+    if (editSheetSuccess) editSheetSuccess.hidden = true;
   }
 
   function setEditLoading(on) {
@@ -612,7 +549,6 @@ async function loadListingsTab(userId) {
     setEditLoading(true);
 
     try {
-      // Upload new avatar if selected
       if (editAvatarNewFile) {
         const { error: avatarError } = await JARAProfile.uploadAvatar(editAvatarNewFile);
         if (avatarError) {
@@ -622,7 +558,6 @@ async function loadListingsTab(userId) {
         }
       }
 
-      // Build update payload
       const payload = {
         full_name:            editFullName?.value.trim()       || null,
         bio:                  editBio?.value.trim()            || null,
@@ -641,14 +576,9 @@ async function loadListingsTab(userId) {
         return;
       }
 
-      // Re-render profile with updated data
       renderProfile(updated);
-
-      // Show success
       if (editSheetSuccess) editSheetSuccess.hidden = false;
       setEditLoading(false);
-
-      // Auto-close after 1.5 seconds
       setTimeout(closeEditSheet, 1500);
 
     } catch (err) {
@@ -657,6 +587,8 @@ async function loadListingsTab(userId) {
       setEditLoading(false);
     }
   });
+
+
   /* ==========================================================
      LOGOUT
   ========================================================== */
@@ -679,6 +611,7 @@ async function loadListingsTab(userId) {
     if (profileName) profileName.classList.remove('profile-name--hidden');
     if (profileSub)  profileSub.classList.remove('profile-sub--hidden');
   }
+
 
   /* ==========================================================
      UTILITIES
@@ -712,11 +645,6 @@ async function loadListingsTab(userId) {
 
   async function init() {
     try {
-      /*
-       JARAProfile.load() uses the cached profile from auth-guard
-       if available, otherwise fetches from Supabase.
-       This avoids the double-fetch identified in audit item C6.
-      */
       const profile = await JARAProfile.load();
 
       if (!profile) {
@@ -727,11 +655,9 @@ async function loadListingsTab(userId) {
       hideSkeletons();
       renderProfile(profile);
 
-      // Get userId for stats + content tabs
       const userId = profile.id;
-      // Run tab loaders independently so errors don't crash init
-      loadStats(userId).catch(e => console.error('Stats error:', e));
-      loadListingsTab(userId).catch(e => console.error('Listings tab error:', e));
+      loadStats(userId).catch(err => console.error('Stats error:', err));
+      loadListingsTab(userId).catch(err => console.error('Listings error:', err));
       loadRequestsTab(userId);
       loadRepliesTab(userId);
 
@@ -741,5 +667,6 @@ async function loadListingsTab(userId) {
     }
   }
 
-  init(); 
+  init();
+
 });
