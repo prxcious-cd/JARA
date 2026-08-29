@@ -514,9 +514,9 @@ button { font-family: inherit; border: none; background: none; cursor: pointer; 
 ============================================================ */
 .profile-quick-actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   align-items: center;
-  gap: var(--space-3);
-  padding: 0 var(--space-5);
 }
 
 .profile-action-btn {
