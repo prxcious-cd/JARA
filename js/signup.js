@@ -285,17 +285,26 @@ options: {
       });
 
 if (error) {
-        // DIAGNOSTIC — shows raw Supabase error so we can identify root cause
-        const rawMsg = JSON.stringify({
-          message: error.message,
-          status: error.status,
-          name: error.name,
-          code: error.code,
-        });
-        showAlert('error', rawMsg);
+        let msg = 'Something went wrong. Please try again.';
+        const m = error.message ? error.message.toLowerCase() : '';
+
+        if (m.includes('already registered') || m.includes('already exists')) {
+          msg = 'An account with this email already exists. Try logging in instead.';
+        } else if (m.includes('password')) {
+          msg = 'Your password does not meet the minimum requirements.';
+        } else if (m.includes('rate limit')) {
+          msg = 'Too many sign-up attempts. Please wait a moment and try again.';
+        } else if (m.includes('confirmation email') || m.includes('sending')) {
+          msg = 'Your account was created but we could not send the verification email. ' +
+                'Please contact support or try again shortly.';
+        } else if (m.includes('email')) {
+          msg = 'There was a problem with your email address. Please check it and try again.';
+        }
+
+        showAlert('error', msg);
         setLoading(false);
         return;
-}
+                                    }
 
       // Success — show email verification screen
       if (successEmail) successEmail.textContent = email;
