@@ -276,12 +276,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const { data, error } = await window._supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { full_name: fullName },
-          /*
-           FUTURE: Set emailRedirectTo to your live GitHub Pages URL:
-             emailRedirectTo: 'https://prxcious-cd.github.io/JARA/auth/login.html'
-          */
+options: {
+          data: {
+            full_name: fullName,
+          },
+          emailRedirectTo: 'https://prxcious-cd.github.io/JARA/auth/login.html',
         },
       });
 
