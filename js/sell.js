@@ -798,7 +798,143 @@ document.addEventListener('DOMContentLoaded', async () => {
     return d.innerHTML;
   }
 
+/* ==========================================================
+     LOAD EXISTING LISTING (edit mode)
+  ========================================================== */
 
+  async function loadExistingListing() {
+    // Show loading state on step 2 immediately
+    goToStep(2);
+
+    try {
+      const { data: listing, error } = await JARAListings.fetchOne(S.listingId);
+
+      if (error || !listing) {
+        showStep2Alert('Could not load this listing. Please try again.');
+        return;
+      }
+
+      // Security — only the owner can edit
+      const owned = await JARAListings.isOwner(listing);
+      if (!owned) {
+        window.location.replace('../explore/index.html');
+        return;
+      }
+
+      // Store existing listing state
+      S.listingType      = listing.listing_type || 'product';
+      S.existingImages   = listing.images || [];
+      S.removedImageUrls = [];
+
+      // Update step 2 heading
+      if (step2Eyebrow) {
+        const labels = {
+          product: 'Edit product',
+          service: 'Edit service',
+          request: 'Edit request',
+        };
+        step2Eyebrow.textContent = labels[S.listingType] || 'Edit listing';
+      }
+
+      // Pre-fill all form fields
+      if (postTitle)       postTitle.value       = listing.title        || '';
+      if (postDescription) postDescription.value = listing.description  || '';
+      if (postCategory)    postCategory.value    = listing.category     || '';
+      if (locationManual)  locationManual.value  = listing.location     || '';
+      S.location = listing.location || '';
+
+      // Update char counters
+      if (titleCharCount)  titleCharCount.textContent  = `${(listing.title || '').length} / 120`;
+      if (descCharCount)   descCharCount.textContent   = `${(listing.description || '').length} / 2000`;
+
+      // Price type chips
+      if (listing.negotiable) {
+        const negChip = document.querySelector('.price-chip[data-price="negotiable"]');
+        if (negChip) {
+          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+          negChip.setAttribute('aria-checked', 'true');
+          S.priceType = 'negotiable';
+          if (priceAmountWrap) priceAmountWrap.hidden = true;
+        }
+      } else if (listing.price !== null && listing.price !== undefined) {
+        const fixedChip = document.querySelector('.price-chip[data-price="fixed"]');
+        if (fixedChip) {
+          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+          fixedChip.setAttribute('aria-checked', 'true');
+          S.priceType   = 'fixed';
+          S.priceAmount = listing.price;
+          if (priceAmount)     priceAmount.value     = listing.price;
+          if (priceAmountWrap) priceAmountWrap.hidden = false;
+        }
+      } else {
+        const freeChip = document.querySelector('.price-chip[data-price="free"]');
+        if (freeChip) {
+          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+          freeChip.setAttribute('aria-checked', 'true');
+          S.priceType = 'free';
+          if (priceAmountWrap) priceAmountWrap.hidden = true;
+        }
+      }
+
+      // Render existing images as previews
+      renderExistingImages();
+
+      // Show delete button
+      const deleteBtn = document.getElementById('deleteListingBtn');
+      if (deleteBtn) deleteBtn.removeAttribute('hidden');
+
+    } catch (err) {
+      console.error('loadExistingListing error:', err.message);
+      showStep2Alert('An unexpected error occurred. Please try again.');
+    }
+  }
+
+  function renderExistingImages() {
+    if (!photoGrid) return;
+    photoGrid.innerHTML = '';
+
+    // Show existing images with remove buttons
+    S.existingImages.forEach((url, i) => {
+      const slot = document.createElement('div');
+      slot.className = 'photo-slot photo-slot--filled';
+      slot.innerHTML = `
+        <img src="${url}" alt="Existing image ${i + 1}" class="photo-slot__img" />
+        <button type="button" class="photo-slot__remove"
+                aria-label="Remove image ${i + 1}">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      `;
+      slot.querySelector('.photo-slot__remove').addEventListener('click', () => {
+        S.existingImages    = S.existingImages.filter(u => u !== url);
+        S.removedImageUrls  = [...S.removedImageUrls, url];
+        renderExistingImages();
+      });
+      photoGrid.appendChild(slot);
+    });
+
+    // Add slot for new photos (if under limit)
+    const total = S.existingImages.length + S.newImageFiles.length;
+    if (total < MAX_PHOTOS) {
+      const addSlot = document.createElement('label');
+      addSlot.className = 'photo-slot photo-slot--add';
+      addSlot.setAttribute('aria-label', 'Add photo');
+      addSlot.innerHTML = `
+        <i class="fa-solid fa-plus" aria-hidden="true"></i>
+        <span>Add photo</span>
+        <input type="file" accept="image/jpeg,image/png,image/webp"
+               class="photo-slot__input" multiple aria-hidden="true" />
+      `;
+      addSlot.querySelector('input').addEventListener('change', e => {
+        const files   = Array.from(e.target.files || []);
+        const allowed = MAX_PHOTOS - S.existingImages.length - S.newImageFiles.length;
+        const valid   = files.slice(0, allowed).filter(f => f.size <= 10 * 1024 * 1024);
+        S.newImageFiles = [...S.newImageFiles, ...valid];
+        renderExistingImages();
+        e.target.value = '';
+      });
+      photoGrid.appendChild(addSlot);
+    }
+     }
   /* ==========================================================
      INIT
   ========================================================== */
@@ -807,7 +943,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     S.profile = await JARAProfile.load();
     buildCategories();
     buildPhotoGrid();
-    goToStep(1);
+
+    if (S.mode === 'edit' && S.listingId) {
+      await loadExistingListing();
+    } else {
+      goToStep(1);
+    }
   }
 
   init();
