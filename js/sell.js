@@ -563,12 +563,71 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ---- Step 3 navigation ---- */
   step3Back?.addEventListener('click', () => goToStep(2));
 
-  step3Next?.addEventListener('click', () => {
+ step3Next?.addEventListener('click', () => {
     goToStep(4);
-    handlePublish();
+    if (S.mode === 'edit') {
+      handleUpdate();
+    } else {
+      handlePublish();
+    }
   });
 
+/* ==========================================================
+     UPDATE EXISTING LISTING (edit mode)
+  ========================================================== */
 
+  async function handleUpdate() {
+    if (S.isLoading) return;
+    S.isLoading = true;
+
+    if (publishingState) publishingState.hidden = false;
+    if (successState)    successState.hidden    = true;
+    if (topbarBack)      topbarBack.hidden      = true;
+
+    try {
+      const fields = {
+        title:           S.title,
+        description:     S.description,
+        category:        S.category,
+        listing_type:    S.listingType,
+        price:           S.priceType === 'fixed' ? S.priceAmount : null,
+        negotiable:      S.priceType === 'negotiable',
+        location:        S.location || 'Redeemer\'s University, Ede',
+        _existingImages: S.existingImages,
+      };
+
+      const { data, error } = await JARAListings.update(
+        S.listingId,
+        fields,
+        S.newImageFiles,
+        S.removedImageUrls
+      );
+
+      if (error) {
+        if (publishingState) publishingState.hidden = true;
+        if (successState)    successState.hidden    = false;
+        if (publishError)    publishError.hidden    = false;
+        if (publishErrorText) publishErrorText.textContent =
+          'Update failed: ' + (error.message || 'Please try again.');
+        if (topbarBack) topbarBack.hidden = false;
+        S.isLoading = false;
+        return;
+      }
+
+      // Success — redirect to the listing
+      S.isLoading = false;
+      window.location.replace(`../listing/index.html?id=${S.listingId}`);
+
+    } catch (err) {
+      console.error('handleUpdate error:', err.message);
+      if (publishingState) publishingState.hidden = true;
+      if (publishError)    publishError.hidden    = false;
+      if (publishErrorText) publishErrorText.textContent =
+        'An unexpected error occurred. Please try again.';
+      if (topbarBack) topbarBack.hidden = false;
+      S.isLoading = false;
+    }
+         }
   /* ==========================================================
      STEP 4 — PUBLISH TO SUPABASE
   ========================================================== */
@@ -797,7 +856,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     d.textContent = String(str);
     return d.innerHTML;
   }
+/* ==========================================================
+     DELETE LISTING
+  ========================================================== */
 
+  const deleteListingBtn = document.getElementById('deleteListingBtn');
+
+  deleteListingBtn?.addEventListener('click', async () => {
+    if (!S.listingId) return;
+
+    const confirmed = window.confirm(
+      'Delete this listing permanently?\n\nThis cannot be undone. ' +
+      'All photos will also be removed.'
+    );
+    if (!confirmed) return;
+
+    deleteListingBtn.disabled    = true;
+    deleteListingBtn.textContent = 'Deleting…';
+
+    const { error } = await JARAListings.remove(S.listingId);
+
+    if (error) {
+      deleteListingBtn.disabled    = false;
+      deleteListingBtn.innerHTML   = '<i class="fa-solid fa-trash"></i> Delete Listing';
+      showStep2Alert('Delete failed: ' + error.message);
+      return;
+    }
+
+    // Success — go back to store/activity
+    window.location.replace('../store/index.html');
+  });
 /* ==========================================================
      LOAD EXISTING LISTING (edit mode)
   ========================================================== */
