@@ -381,7 +381,15 @@
           </div>
 
         </form>
-
+      <!-- Delete listing — only shown in edit mode, wired by sell.js -->
+<button class="btn-danger" id="deleteListingBtn" type="button" hidden
+        style="width:100%;margin-bottom:0.75rem;padding:0.875rem;
+               background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);
+               border-radius:14px;font-family:'Space Grotesk',sans-serif;
+               font-size:0.9375rem;font-weight:700;color:#FCA5A5;cursor:pointer;">
+  <i class="fa-solid fa-trash" aria-hidden="true"></i>
+  Delete Listing
+</button>
         <div class="sell-step__actions sell-step__actions--split">
           <button class="btn-ghost" id="step2Back">
             <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back
