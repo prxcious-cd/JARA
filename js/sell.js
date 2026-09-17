@@ -1,57 +1,73 @@
 /* ============================================================
-   JARA ∆ — Create Listing Wizard
+   JARA ∆ — Create / Edit Listing
    js/sell.js
 
-   4-step wizard matched to sell/index.html exactly.
+   Handles both CREATE and EDIT modes for listings.
 
-   Step 1 — Choose type (product / service / request)
-   Step 2 — Fill details
-   Step 3 — Preview
-   Step 4 — Publishing animation + success screen
+   CREATE MODE (default):
+     4-step wizard: Type → Details → Preview → Publish
+
+   EDIT MODE (?edit=LISTING_ID in URL):
+     Skips Step 1, pre-fills Step 2 with existing data,
+     publishes as an UPDATE not an INSERT.
 
    All IDs verified against sell/index.html.
+
+   Depends on:
+     - window._supabase    (supabase-client.js)
+     - window.JARAAuth     (auth-guard.js)
+     - window.JARAProfile  (jara-profile.js)
+     - window.JARAListings (jara-listings.js)
 ============================================================ */
 
 document.addEventListener('DOMContentLoaded', async () => {
+
+  /* ==========================================================
+     MODE DETECTION
+     ?edit=ID → edit mode
+     (no param) → create mode
+  ========================================================== */
+
+  const urlParams  = new URLSearchParams(window.location.search);
+  const EDIT_ID    = urlParams.get('edit') || null;
+  const IS_EDIT    = !!EDIT_ID;
 
   /* ==========================================================
      STATE
   ========================================================== */
 
   const S = {
-    step:         1,
-    listingType:  null,
-    title:        '',
-    category:     '',
-    description:  '',
-    tags:         [],
-    photos:       [],
-    location:     '',
-    priceType:    null,
-    priceAmount:  null,
-    availability: 'available',
-    profile:      null,
-    publishedId:  null,
+    // Wizard
+    step:            IS_EDIT ? 2 : 1,
+    listingType:     null,
+    title:           '',
+    category:        '',
+    description:     '',
+    tags:            [],
+    newImageFiles:   [],      // File objects to upload
+    existingImages:  [],      // URLs already in Storage (edit mode)
+    removedImageUrls:[],      // existing URLs the user removed
+    location:        '',
+    priceType:       null,
+    priceAmount:     null,
+    availability:    'available',
+    profile:         null,
+    isLoading:       false,
+    publishedId:     null,    // set after successful create/update
   };
+
+  const TOTAL_STEPS = 4;
+  const MAX_PHOTOS  = 5;
 
   /* ==========================================================
      CATEGORIES
   ========================================================== */
 
   const CATEGORIES = [
-    'Books & Stationery',
-    'Food & Drinks',
-    'Tech & Repairs',
-    'Personal Care',
-    'Creative Services',
-    'Laundry & Errands',
-    'Tutoring',
-    'Hostel & Home',
-    'Power & Generator',
-    'Fashion & Clothing',
-    'Health & Wellness',
-    'Transport',
-    'Other',
+    'Books & Stationery', 'Food & Drinks', 'Tech & Repairs',
+    'Personal Care', 'Creative Services', 'Laundry & Errands',
+    'Tutoring', 'Hostel & Home', 'Power & Generator',
+    'Fashion & Clothing', 'Health & Wellness', 'Transport', 'Other',
   ];
 
   /* ==========================================================
@@ -83,6 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const step2Alert      = document.getElementById('step2Alert');
   const step2AlertText  = document.getElementById('step2AlertText');
   const step2Eyebrow    = document.getElementById('step2Eyebrow');
+  const step2Subtitle   = document.getElementById('step2Subtitle');
   const postTitle       = document.getElementById('postTitle');
   const titleCharCount  = document.getElementById('titleCharCount');
   const postCategory    = document.getElementById('postCategory');
@@ -96,10 +113,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const useLocationBtn  = document.getElementById('useLocationBtn');
   const priceAmountWrap = document.getElementById('priceAmountWrap');
   const priceAmount     = document.getElementById('priceAmount');
-  const step2Back       = document.getElementById('step2Back');
-  const step2Next       = document.getElementById('step2Next');
   const priceChips      = document.querySelectorAll('.price-chip');
   const statusChips     = document.querySelectorAll('.status-chip');
+  const deleteListingBtn= document.getElementById('deleteListingBtn');
+  const step2Back       = document.getElementById('step2Back');
+  const step2Next       = document.getElementById('step2Next');
 
   // Step 3
   const previewPhotos       = document.getElementById('previewPhotos');
@@ -122,6 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const successState    = document.getElementById('successState');
   const jaraIdDisplay   = document.getElementById('jaraIdDisplay');
   const copyJaraId      = document.getElementById('copyJaraId');
+  const viewListingBtn  = document.getElementById('viewListingBtn');
   const createAnotherBtn= document.getElementById('createAnotherBtn');
   const publishError    = document.getElementById('publishError');
   const publishErrorText= document.getElementById('publishErrorText');
@@ -132,81 +151,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   ========================================================== */
 
   const ALL_STEPS = [step1, step2, step3, step4];
-  const TOTAL     = 4;
-
-  // Progress % per step (step 1 = no bar, steps 2-4 show bar)
   const PROGRESS_PCT = { 1: 0, 2: 33, 3: 66, 4: 100 };
-
-  const STEP_TITLES = {
-    1: 'Create',
-    2: 'Details',
-    3: 'Preview',
-    4: 'Publishing',
-  };
+  const STEP_TITLES  = { 1: 'Create', 2: IS_EDIT ? 'Edit' : 'Details', 3: 'Preview', 4: IS_EDIT ? 'Saving…' : 'Publishing' };
 
   function goToStep(n) {
     S.step = n;
 
-    // Show only the active step
     ALL_STEPS.forEach((el, i) => {
       if (!el) return;
-      const isActive = (i + 1) === n;
-      el.hidden = !isActive;
-      el.classList.toggle('sell-step--active', isActive);
+      el.hidden = (i + 1) !== n;
+      el.classList.toggle('sell-step--active', (i + 1) === n);
     });
 
-    // Back button — hidden on step 1
-    if (topbarBack) {
-      topbarBack.hidden = n <= 1;
-    }
+    // Back button — hidden on step 1, also hidden on step 4
+    if (topbarBack) topbarBack.hidden = (n <= 1 || n === 4);
 
     // Title
-    if (topbarTitle) {
-      topbarTitle.textContent = STEP_TITLES[n] || 'Create';
-    }
+    if (topbarTitle) topbarTitle.textContent = STEP_TITLES[n] || 'Create';
 
     // Step badge — hidden on step 1
     if (topbarStepBadge && topbarStepText) {
       topbarStepBadge.hidden = n <= 1;
-      topbarStepText.textContent = `Step ${n} of ${TOTAL}`;
+      topbarStepText.textContent = `Step ${n} of ${TOTAL_STEPS}`;
     }
 
-    // Progress bar — hidden on step 1
+    // Progress bar
     if (sellProgress && progressFill) {
       sellProgress.hidden = n <= 1;
-      progressFill.style.width = PROGRESS_PCT[n] + '%';
+      progressFill.style.width = (PROGRESS_PCT[n] || 0) + '%';
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // Topbar back button
+  // Topbar back
   topbarBack?.addEventListener('click', () => {
-    if (S.step > 1 && S.step < 4) {
-      goToStep(S.step - 1);
-    }
-    // Disable back on step 4 (publishing in progress)
+    if (S.step > 1 && S.step < 4) goToStep(S.step - 1);
   });
 
 
   /* ==========================================================
-     STEP 1 — TYPE SELECTION
+     STEP 1 — TYPE SELECTION (create mode only)
   ========================================================== */
 
   typeCards.forEach(card => {
     card.addEventListener('click', () => {
-      // Deselect all
       typeCards.forEach(c => {
         c.classList.remove('type-card--selected');
         c.setAttribute('aria-checked', 'false');
       });
-
-      // Select tapped card
       card.classList.add('type-card--selected');
       card.setAttribute('aria-checked', 'true');
       S.listingType = card.dataset.type;
-
-      // Hide the error as soon as a choice is made
       if (typeError) typeError.hidden = true;
     });
   });
@@ -216,45 +212,37 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (typeError) typeError.hidden = false;
       return;
     }
-
-    // Update Step 2 heading to match type
-    if (step2Eyebrow) {
-      const eyebrows = {
-        product: 'Product details',
-        service: 'Service details',
-        request: 'Request details',
-      };
-      step2Eyebrow.textContent = eyebrows[S.listingType] || 'Details';
-    }
-
+    updateStep2Heading();
     goToStep(2);
   });
+
+  function updateStep2Heading() {
+    const eyebrows = {
+      product: 'Product details',
+      service: 'Service details',
+      request: 'Request details',
+    };
+    if (step2Eyebrow) step2Eyebrow.textContent = eyebrows[S.listingType] || 'Details';
+  }
 
 
   /* ==========================================================
      STEP 2 — DETAILS
   ========================================================== */
 
-  /* ---- Category dropdown ---- */
+  /* ---- Categories ---- */
   function buildCategories() {
     if (!postCategory) return;
     postCategory.innerHTML = '<option value="" disabled selected>Select a category</option>';
     CATEGORIES.forEach(cat => {
-      const opt       = document.createElement('option');
-      opt.value       = cat;
+      const opt = document.createElement('option');
+      opt.value = cat;
       opt.textContent = cat;
       postCategory.appendChild(opt);
     });
-    /*
-     FUTURE: Load from Supabase categories table:
-       const { data } = await window._supabase
-         .from('categories')
-         .select('name')
-         .order('name');
-    */
   }
 
-  /* ---- Character counters ---- */
+  /* ---- Char counters ---- */
   postTitle?.addEventListener('input', () => {
     if (titleCharCount) titleCharCount.textContent = `${postTitle.value.length} / 120`;
     hideStep2Alert();
@@ -266,11 +254,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   /* ---- Tags ---- */
-  const MAX_TAGS = 10;
-
   function addTag(raw) {
     const tag = raw.trim().replace(/,+$/, '').trim();
-    if (!tag || S.tags.includes(tag) || S.tags.length >= MAX_TAGS) return;
+    if (!tag || S.tags.includes(tag) || S.tags.length >= 10) return;
     S.tags.push(tag);
     renderTags();
   }
@@ -281,12 +267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     S.tags.forEach((tag, i) => {
       const chip = document.createElement('span');
       chip.className = 'tag-chip';
-      chip.innerHTML = `
-        ${esc(tag)}
-        <button type="button" aria-label="Remove tag ${esc(tag)}">
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-      `;
+      chip.innerHTML = `${esc(tag)}<button type="button" aria-label="Remove ${esc(tag)}"><i class="fa-solid fa-xmark"></i></button>`;
       chip.querySelector('button').addEventListener('click', () => {
         S.tags.splice(i, 1);
         renderTags();
@@ -302,60 +283,68 @@ document.addEventListener('DOMContentLoaded', async () => {
       tagInput.value = '';
     }
   });
-
   tagInput?.addEventListener('blur', () => {
-    if (tagInput.value.trim()) {
-      addTag(tagInput.value);
-      tagInput.value = '';
-    }
+    if (tagInput.value.trim()) { addTag(tagInput.value); tagInput.value = ''; }
   });
 
   /* ---- Photo grid ---- */
-  const MAX_PHOTOS = 5;
-
   function buildPhotoGrid() {
     if (!photoGrid) return;
     photoGrid.innerHTML = '';
 
-    S.photos.forEach((file, i) => {
-      const url  = URL.createObjectURL(file);
+    // Existing images (edit mode)
+    S.existingImages.forEach((url, i) => {
       const slot = document.createElement('div');
       slot.className = 'photo-slot photo-slot--filled';
       slot.innerHTML = `
-        <img src="${url}" alt="Photo ${i + 1}" class="photo-slot__img" />
-        <button type="button" class="photo-slot__remove"
-                aria-label="Remove photo ${i + 1}">
+        <img src="${esc(url)}" alt="Photo ${i + 1}" class="photo-slot__img" />
+        <button type="button" class="photo-slot__remove" aria-label="Remove photo ${i + 1}">
           <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
       `;
       slot.querySelector('.photo-slot__remove').addEventListener('click', () => {
-        S.photos.splice(i, 1);
+        S.existingImages    = S.existingImages.filter(u => u !== url);
+        S.removedImageUrls  = [...S.removedImageUrls, url];
         buildPhotoGrid();
       });
       photoGrid.appendChild(slot);
     });
 
-    if (S.photos.length < MAX_PHOTOS) {
+    // New file slots
+    S.newImageFiles.forEach((file, i) => {
+      const url  = URL.createObjectURL(file);
+      const slot = document.createElement('div');
+      slot.className = 'photo-slot photo-slot--filled';
+      slot.innerHTML = `
+        <img src="${esc(url)}" alt="New photo ${i + 1}" class="photo-slot__img" />
+        <button type="button" class="photo-slot__remove" aria-label="Remove photo">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      `;
+      slot.querySelector('.photo-slot__remove').addEventListener('click', () => {
+        S.newImageFiles.splice(i, 1);
+        buildPhotoGrid();
+      });
+      photoGrid.appendChild(slot);
+    });
+
+    // Add slot (if under limit)
+    const total = S.existingImages.length + S.newImageFiles.length;
+    if (total < MAX_PHOTOS) {
       const addSlot = document.createElement('label');
       addSlot.className = 'photo-slot photo-slot--add';
       addSlot.setAttribute('aria-label', 'Add photo');
       addSlot.innerHTML = `
         <i class="fa-solid fa-plus" aria-hidden="true"></i>
         <span>Add photo</span>
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          class="photo-slot__input"
-          multiple
-          aria-hidden="true"
-        />
+        <input type="file" accept="image/jpeg,image/png,image/webp"
+               class="photo-slot__input" multiple aria-hidden="true" />
       `;
       addSlot.querySelector('input').addEventListener('change', e => {
         const files   = Array.from(e.target.files || []);
-        const allowed = MAX_PHOTOS - S.photos.length;
-        const valid   = files.slice(0, allowed)
-          .filter(f => f.size <= 10 * 1024 * 1024);
-        S.photos = [...S.photos, ...valid];
+        const allowed = MAX_PHOTOS - S.existingImages.length - S.newImageFiles.length;
+        const valid   = files.slice(0, allowed).filter(f => f.size <= 10 * 1024 * 1024);
+        S.newImageFiles = [...S.newImageFiles, ...valid];
         buildPhotoGrid();
         e.target.value = '';
       });
@@ -390,7 +379,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     S.location = locationManual.value.trim();
   });
 
-  /* ---- Price type chips ---- */
+  /* ---- Price chips ---- */
   priceChips.forEach(chip => {
     chip.addEventListener('click', () => {
       priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
@@ -426,10 +415,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (step2Alert) step2Alert.hidden = true;
   }
 
-  /* ---- Step 2 validation ---- */
+  /* ---- Validation ---- */
   function validateStep2() {
-    const title = postTitle?.value.trim()       || '';
-    const cat   = postCategory?.value           || '';
+    hideStep2Alert();
+    const title = postTitle?.value.trim() || '';
+    const cat   = postCategory?.value    || '';
     const desc  = postDescription?.value.trim() || '';
 
     if (!title || title.length < 3) {
@@ -452,7 +442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return false;
     }
     if (S.priceType === 'fixed' && !S.priceAmount) {
-      showStep2Alert('Please enter a price amount.');
+      showStep2Alert('Please enter the price amount.');
       priceAmount?.focus();
       return false;
     }
@@ -460,12 +450,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   /* ---- Step 2 navigation ---- */
-  step2Back?.addEventListener('click', () => goToStep(1));
+  step2Back?.addEventListener('click', () => {
+    if (IS_EDIT) {
+      // In edit mode, back goes to the listing detail page
+      window.location.replace(`../listing/index.html?id=${EDIT_ID}`);
+    } else {
+      goToStep(1);
+    }
+  });
 
   step2Next?.addEventListener('click', () => {
     hideStep2Alert();
 
-    // Collect current values
     S.title       = postTitle?.value.trim()       || '';
     S.category    = postCategory?.value           || '';
     S.description = postDescription?.value.trim() || '';
@@ -479,20 +475,69 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   /* ==========================================================
+     DELETE LISTING (edit mode only)
+  ========================================================== */
+
+  deleteListingBtn?.addEventListener('click', async () => {
+    if (!EDIT_ID) return;
+
+    const confirmed = window.confirm(
+      'Delete this listing permanently?\n\n' +
+      'This cannot be undone. All photos will also be removed.'
+    );
+    if (!confirmed) return;
+
+    deleteListingBtn.disabled    = true;
+    deleteListingBtn.textContent = 'Deleting…';
+
+    try {
+      const { error } = await JARAListings.remove(EDIT_ID);
+
+      if (error) {
+        deleteListingBtn.disabled = false;
+        deleteListingBtn.innerHTML =
+          '<i class="fa-solid fa-trash" aria-hidden="true"></i> Delete Listing';
+        showStep2Alert('Delete failed: ' + (error.message || 'Please try again.'));
+        return;
+      }
+
+      // Success — return to store
+      window.location.replace('../store/index.html');
+
+    } catch (err) {
+      console.error('Delete listing error:', err.message);
+      deleteListingBtn.disabled = false;
+      deleteListingBtn.innerHTML =
+        '<i class="fa-solid fa-trash" aria-hidden="true"></i> Delete Listing';
+      showStep2Alert('An unexpected error occurred. Please try again.');
+    }
+  });
+
+
+  /* ==========================================================
      STEP 3 — PREVIEW
   ========================================================== */
 
   function buildPreview() {
     /* ---- Photos ---- */
     if (previewPhotos) {
-      if (S.photos.length > 0) {
-        previewPhotos.innerHTML = '';
+      previewPhotos.innerHTML = '';
+      const firstNew      = S.newImageFiles[0];
+      const firstExisting = S.existingImages[0];
+
+      if (firstNew) {
         const img = document.createElement('img');
-        img.src       = URL.createObjectURL(S.photos[0]);
-        img.alt       = 'Listing preview photo';
+        img.src       = URL.createObjectURL(firstNew);
+        img.alt       = 'Listing preview';
         img.className = 'preview-card__photo';
-        img.style.cssText =
-          'width:100%;height:100%;object-fit:cover;border-radius:16px 16px 0 0';
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:16px 16px 0 0';
+        previewPhotos.appendChild(img);
+      } else if (firstExisting) {
+        const img = document.createElement('img');
+        img.src       = firstExisting;
+        img.alt       = 'Listing preview';
+        img.className = 'preview-card__photo';
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:16px 16px 0 0';
         previewPhotos.appendChild(img);
       } else {
         previewPhotos.innerHTML = `
@@ -502,18 +547,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    /* ---- Badges ---- */
-    const typeLabels = { product:'Product', service:'Service', request:'Request' };
-    const statusLabels = {
-      available:'Available', busy:'Busy',
-      out_of_stock:'Out of Stock', coming_soon:'Coming Soon',
-    };
+    /* ---- Type + status badges ---- */
+    const typeLabels   = { product:'Product', service:'Service', request:'Request' };
+    const statusLabels = { available:'Available', busy:'Busy', out_of_stock:'Out of Stock', coming_soon:'Coming Soon' };
     if (previewTypeBadge)   previewTypeBadge.textContent   = typeLabels[S.listingType]   || S.listingType;
     if (previewStatusBadge) previewStatusBadge.textContent = statusLabels[S.availability] || S.availability;
 
     /* ---- Content ---- */
     if (previewTitle)       previewTitle.textContent       = S.title       || 'Your title';
     if (previewDescription) previewDescription.textContent = S.description || 'Your description';
+    if (previewLocationText) previewLocationText.textContent = S.location  || 'Location not set';
 
     /* ---- Price ---- */
     if (previewPrice) {
@@ -527,17 +570,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       previewPrice.textContent = priceMap[S.priceType] || '—';
     }
 
-    /* ---- Location ---- */
-    if (previewLocationText) {
-      previewLocationText.textContent = S.location || 'Location not set';
-    }
-
     /* ---- Tags ---- */
     if (previewTags) {
       if (S.tags.length > 0) {
-        previewTags.innerHTML = S.tags
-          .map(t => `<span class="preview-tag">#${esc(t)}</span>`)
-          .join('');
+        previewTags.innerHTML = S.tags.map(t => `<span class="preview-tag">#${esc(t)}</span>`).join('');
         previewTags.hidden = false;
       } else {
         previewTags.hidden = true;
@@ -550,8 +586,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (previewAvatar)     previewAvatar.textContent     = JARAProfile.getInitials(S.profile);
       if (previewSellerType && S.profile.account_type) {
         previewSellerType.textContent =
-          S.profile.account_type.charAt(0).toUpperCase() +
-          S.profile.account_type.slice(1);
+          S.profile.account_type.charAt(0).toUpperCase() + S.profile.account_type.slice(1);
       }
       if (previewWhatsapp && S.profile.whatsapp) {
         const num = S.profile.whatsapp.replace(/\D/g, '');
@@ -563,82 +598,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* ---- Step 3 navigation ---- */
   step3Back?.addEventListener('click', () => goToStep(2));
 
- step3Next?.addEventListener('click', () => {
+  step3Next?.addEventListener('click', () => {
     goToStep(4);
-    if (S.mode === 'edit') {
+    if (IS_EDIT) {
       handleUpdate();
     } else {
       handlePublish();
     }
   });
 
-/* ==========================================================
-     UPDATE EXISTING LISTING (edit mode)
+  /* ---- Share buttons on preview ---- */
+  document.querySelectorAll('#shareBtns .share-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const platform = btn.dataset.platform;
+      const url      = window.location.href;
+      const text     = encodeURIComponent(`Check out this listing on JARA ∆: ${S.title}`);
+
+      if (platform === 'copy' || platform === 'instagram') {
+        navigator.clipboard?.writeText(url).then(() => window.jaraToast?.('Link copied!'));
+      } else if (platform === 'whatsapp') {
+        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener');
+      } else if (platform === 'facebook') {
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'noopener');
+      }
+    });
+  });
+
+
+  /* ==========================================================
+     STEP 4 — PUBLISH (create mode)
   ========================================================== */
 
-  async function handleUpdate() {
+  async function handlePublish() {
     if (S.isLoading) return;
     S.isLoading = true;
 
     if (publishingState) publishingState.hidden = false;
     if (successState)    successState.hidden    = true;
-    if (topbarBack)      topbarBack.hidden      = true;
-
-    try {
-      const fields = {
-        title:           S.title,
-        description:     S.description,
-        category:        S.category,
-        listing_type:    S.listingType,
-        price:           S.priceType === 'fixed' ? S.priceAmount : null,
-        negotiable:      S.priceType === 'negotiable',
-        location:        S.location || 'Redeemer\'s University, Ede',
-        _existingImages: S.existingImages,
-      };
-
-      const { data, error } = await JARAListings.update(
-        S.listingId,
-        fields,
-        S.newImageFiles,
-        S.removedImageUrls
-      );
-
-      if (error) {
-        if (publishingState) publishingState.hidden = true;
-        if (successState)    successState.hidden    = false;
-        if (publishError)    publishError.hidden    = false;
-        if (publishErrorText) publishErrorText.textContent =
-          'Update failed: ' + (error.message || 'Please try again.');
-        if (topbarBack) topbarBack.hidden = false;
-        S.isLoading = false;
-        return;
-      }
-
-      // Success — redirect to the listing
-      S.isLoading = false;
-      window.location.replace(`../listing/index.html?id=${S.listingId}`);
-
-    } catch (err) {
-      console.error('handleUpdate error:', err.message);
-      if (publishingState) publishingState.hidden = true;
-      if (publishError)    publishError.hidden    = false;
-      if (publishErrorText) publishErrorText.textContent =
-        'An unexpected error occurred. Please try again.';
-      if (topbarBack) topbarBack.hidden = false;
-      S.isLoading = false;
-    }
-         }
-  /* ==========================================================
-     STEP 4 — PUBLISH TO SUPABASE
-  ========================================================== */
-
-  async function handlePublish() {
-    // Show publishing animation
-    if (publishingState) publishingState.hidden = false;
-    if (successState)    successState.hidden    = true;
-
-    // Disable topbar back so user can't navigate away mid-publish
-    if (topbarBack) topbarBack.hidden = true;
+    if (publishError)    publishError.hidden    = true;
 
     try {
       const fields = {
@@ -653,52 +650,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         _existingImages: [],
       };
 
-      const { data, error } = await JARAListings.create(fields, S.photos);
+      const { data, error } = await JARAListings.create(fields, S.newImageFiles);
 
       if (error) {
         showPublishError('Failed to publish: ' + (error.message || 'Please try again.'));
         return;
       }
 
-      // Success
       S.publishedId = data?.id || null;
+      S.isLoading   = false;
 
-      // Wire up JARA ID badge
+      // Wire JARA ID display
       if (jaraIdDisplay && S.profile?.jara_id) {
-  jaraIdDisplay.textContent = S.profile.jara_id;
+        jaraIdDisplay.textContent = S.profile.jara_id;
       }
 
+      // Wire "View Your Listing" button
+      if (viewListingBtn && S.publishedId) {
+        viewListingBtn.href = `../listing/index.html?id=${S.publishedId}`;
+      }
+
+      // Copy JARA ID
       copyJaraId?.addEventListener('click', () => {
-        const idText = jaraIdDisplay?.textContent || '';
-        navigator.clipboard?.writeText(idText).then(() => {
-          window.jaraToast?.('JARA ID copied!');
-        });
+        const id = jaraIdDisplay?.textContent || '';
+        navigator.clipboard?.writeText(id).then(() => window.jaraToast?.('JARA ID copied!'));
       });
 
-      // Wire success share buttons
-      document.querySelectorAll('[data-context="success"]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          handleSuccessShare(btn.dataset.platform);
-        });
-      });
-
-      // Fix the "Go to Dashboard" link — point to explore
-      const dashLink = successState?.querySelector('a[href*="dashboard"]');
-      if (dashLink && S.publishedId) {
-        dashLink.href        = `../listing/index.html?id=${S.publishedId}`;
-        dashLink.textContent = '';
-        dashLink.innerHTML   = `View Your Listing <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>`;
-      } else if (dashLink) {
-        dashLink.href = '../explore/index.html';
-        dashLink.innerHTML = `Go to Explore <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>`;
-      }
-
-      // Show success screen
       if (publishingState) publishingState.hidden = true;
       if (successState)    successState.hidden    = false;
-
-      // Update topbar
-      if (topbarTitle) topbarTitle.textContent = 'You\'re Live! 🎉';
+      if (topbarTitle)     topbarTitle.textContent = 'You\'re Live! 🎉';
 
     } catch (err) {
       console.error('Publish error:', err.message);
@@ -707,143 +687,157 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function showPublishError(msg) {
+    S.isLoading = false;
     if (publishingState) publishingState.hidden = true;
     if (successState)    successState.hidden    = false;
     if (publishError)    publishError.hidden    = false;
     if (publishErrorText) publishErrorText.textContent = msg;
-
-    // Re-enable back button so user can try again
     if (topbarBack) {
       topbarBack.hidden = false;
-      topbarBack.addEventListener('click', () => goToStep(3), { once: true });
+      topbarBack.onclick = () => goToStep(3);
     }
   }
 
-  function handleSuccessShare(platform) {
-    const url   = S.publishedId
-      ? `${window.location.origin}/JARA/listing/index.html?id=${S.publishedId}`
-      : window.location.href;
-    const text  = encodeURIComponent(`Check out my listing on JARA ∆: ${S.title}`);
-    const encUrl = encodeURIComponent(url);
-
-    const shareUrls = {
-      whatsapp:  `https://wa.me/?text=${text}%20${encUrl}`,
-      facebook:  `https://www.facebook.com/sharer/sharer.php?u=${encUrl}`,
-      instagram: null, // Instagram doesn't support direct share URLs
-      copy:      null,
-    };
-
-    if (platform === 'copy' || platform === 'instagram') {
-      navigator.clipboard?.writeText(url).then(() => {
-        window.jaraToast?.('Link copied!');
-      });
-      return;
-    }
-
-    if (shareUrls[platform]) {
-      window.open(shareUrls[platform], '_blank', 'noopener');
-    }
-  }
-
-  /* ---- Create Another ---- */
-  createAnotherBtn?.addEventListener('click', () => {
-    resetWizard();
-    goToStep(1);
-  });
-
 
   /* ==========================================================
-     SHARE BUTTONS ON STEP 3 PREVIEW
+     STEP 4 — UPDATE (edit mode)
   ========================================================== */
 
-  document.querySelectorAll('#shareBtns .share-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const platform = btn.dataset.platform;
-      const url      = window.location.href;
+  async function handleUpdate() {
+    if (S.isLoading) return;
+    S.isLoading = true;
 
-      if (platform === 'copy') {
-        navigator.clipboard?.writeText(url).then(() => {
-          window.jaraToast?.('Link copied!');
-        });
-        return;
-      }
-
-      if (platform === 'whatsapp') {
-        const text = encodeURIComponent(`Check out this listing on JARA ∆: ${S.title}`);
-        window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener');
-        return;
-      }
-
-      if (platform === 'facebook') {
-        window.open(
-          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
-          '_blank', 'noopener'
-        );
-        return;
-      }
-
-      if (platform === 'instagram') {
-        navigator.clipboard?.writeText(url).then(() => {
-          window.jaraToast?.('Link copied — paste it on Instagram!');
-        });
-      }
-    });
-  });
-
-
-  /* ==========================================================
-     RESET WIZARD
-  ========================================================== */
-
-  function resetWizard() {
-    S.listingType  = null;
-    S.title        = '';
-    S.category     = '';
-    S.description  = '';
-    S.tags         = [];
-    S.photos       = [];
-    S.location     = '';
-    S.priceType    = null;
-    S.priceAmount  = null;
-    S.availability = 'available';
-    S.publishedId  = null;
-
-    // Reset type cards
-    typeCards.forEach(c => {
-      c.classList.remove('type-card--selected');
-      c.setAttribute('aria-checked', 'false');
-    });
-
-    // Reset form fields
-    if (postTitle)       postTitle.value       = '';
-    if (postCategory)    postCategory.value    = '';
-    if (postDescription) postDescription.value = '';
-    if (locationManual)  locationManual.value  = '';
-    if (priceAmount)     priceAmount.value     = '';
-    if (priceAmountWrap) priceAmountWrap.hidden = true;
-    if (locationStatus)  locationStatus.hidden  = true;
-    if (titleCharCount)  titleCharCount.textContent  = '0 / 120';
-    if (descCharCount)   descCharCount.textContent   = '0 / 2000';
-
-    // Reset chips
-    priceChips.forEach(c  => c.setAttribute('aria-checked', 'false'));
-    statusChips.forEach((c, i) => c.setAttribute('aria-checked', i === 0 ? 'true' : 'false'));
-
-    // Reset tags and photos
-    S.tags   = [];
-    S.photos = [];
-    renderTags();
-    buildPhotoGrid();
-
-    // Hide errors
-    if (typeError) typeError.hidden = true;
-    hideStep2Alert();
-
-    // Reset step 4
     if (publishingState) publishingState.hidden = false;
     if (successState)    successState.hidden    = true;
     if (publishError)    publishError.hidden    = true;
+    if (topbarTitle)     topbarTitle.textContent = 'Saving…';
+
+    try {
+      const fields = {
+        title:           S.title,
+        description:     S.description,
+        category:        S.category,
+        listing_type:    S.listingType,
+        price:           S.priceType === 'fixed' ? S.priceAmount : null,
+        negotiable:      S.priceType === 'negotiable',
+        location:        S.location || 'Redeemer\'s University, Ede',
+        _existingImages: S.existingImages,
+      };
+
+      const { data, error } = await JARAListings.update(
+        EDIT_ID,
+        fields,
+        S.newImageFiles,
+        S.removedImageUrls
+      );
+
+      if (error) {
+        showPublishError('Update failed: ' + (error.message || 'Please try again.'));
+        return;
+      }
+
+      S.isLoading = false;
+      // Redirect to the updated listing
+      window.location.replace(`../listing/index.html?id=${EDIT_ID}`);
+
+    } catch (err) {
+      console.error('Update error:', err.message);
+      showPublishError('An unexpected error occurred. Please try again.');
+    }
   }
+
+
+  /* ==========================================================
+     LOAD EXISTING LISTING (edit mode)
+  ========================================================== */
+
+  async function loadExistingListing() {
+    try {
+      const { data: listing, error } = await JARAListings.fetchOne(EDIT_ID);
+
+      if (error || !listing) {
+        showStep2Alert('Could not load this listing. Please go back and try again.');
+        return;
+      }
+
+      // Security — only the owner can edit
+      const owned = await JARAListings.isOwner(listing);
+      if (!owned) {
+        window.location.replace('../explore/index.html');
+        return;
+      }
+
+      // Store state
+      S.listingType      = listing.listing_type || 'product';
+      S.existingImages   = listing.images        || [];
+      S.removedImageUrls = [];
+
+      // Update headings
+      const eyebrows = { product:'Edit product', service:'Edit service', request:'Edit request' };
+      if (step2Eyebrow)  step2Eyebrow.textContent  = eyebrows[S.listingType] || 'Edit listing';
+      if (step2Subtitle) step2Subtitle.textContent = 'Update your listing details.';
+
+      // Pre-fill fields
+      if (postTitle)       postTitle.value       = listing.title        || '';
+      if (postDescription) postDescription.value = listing.description  || '';
+      if (postCategory)    postCategory.value    = listing.category     || '';
+      if (locationManual)  locationManual.value  = listing.location     || '';
+      S.location = listing.location || '';
+
+      // Update char counters
+      if (titleCharCount) titleCharCount.textContent  = `${(listing.title || '').length} / 120`;
+      if (descCharCount)  descCharCount.textContent   = `${(listing.description || '').length} / 2000`;
+
+      // Price chips
+      if (listing.negotiable) {
+        const chip = document.querySelector('.price-chip[data-price="negotiable"]');
+        if (chip) {
+          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+          chip.setAttribute('aria-checked', 'true');
+          S.priceType = 'negotiable';
+          if (priceAmountWrap) priceAmountWrap.hidden = true;
+        }
+      } else if (listing.price !== null && listing.price !== undefined) {
+        const chip = document.querySelector('.price-chip[data-price="fixed"]');
+        if (chip) {
+          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+          chip.setAttribute('aria-checked', 'true');
+          S.priceType   = 'fixed';
+          S.priceAmount = listing.price;
+          if (priceAmount)     priceAmount.value     = listing.price;
+          if (priceAmountWrap) priceAmountWrap.hidden = false;
+        }
+      } else {
+        const chip = document.querySelector('.price-chip[data-price="free"]');
+        if (chip) {
+          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
+          chip.setAttribute('aria-checked', 'true');
+          S.priceType = 'free';
+          if (priceAmountWrap) priceAmountWrap.hidden = true;
+        }
+      }
+
+      // Show delete button
+      if (deleteListingBtn) deleteListingBtn.hidden = false;
+
+      // Render existing image previews
+      buildPhotoGrid();
+
+    } catch (err) {
+      console.error('loadExistingListing error:', err.message);
+      showStep2Alert('An unexpected error occurred loading this listing.');
+    }
+  }
+
+
+  /* ==========================================================
+     CREATE ANOTHER
+  ========================================================== */
+
+  createAnotherBtn?.addEventListener('click', () => {
+    // Navigate to a clean create page
+    window.location.replace('../sell/index.html');
+  });
 
 
   /* ==========================================================
@@ -856,185 +850,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     d.textContent = String(str);
     return d.innerHTML;
   }
-/* ==========================================================
-     DELETE LISTING
-  ========================================================== */
 
-  const deleteListingBtn = document.getElementById('deleteListingBtn');
 
-  deleteListingBtn?.addEventListener('click', async () => {
-    if (!S.listingId) return;
-
-    const confirmed = window.confirm(
-      'Delete this listing permanently?\n\nThis cannot be undone. ' +
-      'All photos will also be removed.'
-    );
-    if (!confirmed) return;
-
-    deleteListingBtn.disabled    = true;
-    deleteListingBtn.textContent = 'Deleting…';
-
-    const { error } = await JARAListings.remove(S.listingId);
-
-    if (error) {
-      deleteListingBtn.disabled    = false;
-      deleteListingBtn.innerHTML   = '<i class="fa-solid fa-trash"></i> Delete Listing';
-      showStep2Alert('Delete failed: ' + error.message);
-      return;
-    }
-
-    // Success — go back to store/activity
-    window.location.replace('../store/index.html');
-  });
-/* ==========================================================
-     LOAD EXISTING LISTING (edit mode)
-  ========================================================== */
-
-  async function loadExistingListing() {
-    // Show loading state on step 2 immediately
-    goToStep(2);
-
-    try {
-      const { data: listing, error } = await JARAListings.fetchOne(S.listingId);
-
-      if (error || !listing) {
-        showStep2Alert('Could not load this listing. Please try again.');
-        return;
-      }
-
-      // Security — only the owner can edit
-      const owned = await JARAListings.isOwner(listing);
-      if (!owned) {
-        window.location.replace('../explore/index.html');
-        return;
-      }
-
-      // Store existing listing state
-      S.listingType      = listing.listing_type || 'product';
-      S.existingImages   = listing.images || [];
-      S.removedImageUrls = [];
-
-      // Update step 2 heading
-      if (step2Eyebrow) {
-        const labels = {
-          product: 'Edit product',
-          service: 'Edit service',
-          request: 'Edit request',
-        };
-        step2Eyebrow.textContent = labels[S.listingType] || 'Edit listing';
-      }
-
-      // Pre-fill all form fields
-      if (postTitle)       postTitle.value       = listing.title        || '';
-      if (postDescription) postDescription.value = listing.description  || '';
-      if (postCategory)    postCategory.value    = listing.category     || '';
-      if (locationManual)  locationManual.value  = listing.location     || '';
-      S.location = listing.location || '';
-
-      // Update char counters
-      if (titleCharCount)  titleCharCount.textContent  = `${(listing.title || '').length} / 120`;
-      if (descCharCount)   descCharCount.textContent   = `${(listing.description || '').length} / 2000`;
-
-      // Price type chips
-      if (listing.negotiable) {
-        const negChip = document.querySelector('.price-chip[data-price="negotiable"]');
-        if (negChip) {
-          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
-          negChip.setAttribute('aria-checked', 'true');
-          S.priceType = 'negotiable';
-          if (priceAmountWrap) priceAmountWrap.hidden = true;
-        }
-      } else if (listing.price !== null && listing.price !== undefined) {
-        const fixedChip = document.querySelector('.price-chip[data-price="fixed"]');
-        if (fixedChip) {
-          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
-          fixedChip.setAttribute('aria-checked', 'true');
-          S.priceType   = 'fixed';
-          S.priceAmount = listing.price;
-          if (priceAmount)     priceAmount.value     = listing.price;
-          if (priceAmountWrap) priceAmountWrap.hidden = false;
-        }
-      } else {
-        const freeChip = document.querySelector('.price-chip[data-price="free"]');
-        if (freeChip) {
-          priceChips.forEach(c => c.setAttribute('aria-checked', 'false'));
-          freeChip.setAttribute('aria-checked', 'true');
-          S.priceType = 'free';
-          if (priceAmountWrap) priceAmountWrap.hidden = true;
-        }
-      }
-
-      // Render existing images as previews
-      renderExistingImages();
-
-      // Show delete button
-      const deleteBtn = document.getElementById('deleteListingBtn');
-      if (deleteBtn) deleteBtn.removeAttribute('hidden');
-
-    } catch (err) {
-      console.error('loadExistingListing error:', err.message);
-      showStep2Alert('An unexpected error occurred. Please try again.');
-    }
-  }
-
-  function renderExistingImages() {
-    if (!photoGrid) return;
-    photoGrid.innerHTML = '';
-
-    // Show existing images with remove buttons
-    S.existingImages.forEach((url, i) => {
-      const slot = document.createElement('div');
-      slot.className = 'photo-slot photo-slot--filled';
-      slot.innerHTML = `
-        <img src="${url}" alt="Existing image ${i + 1}" class="photo-slot__img" />
-        <button type="button" class="photo-slot__remove"
-                aria-label="Remove image ${i + 1}">
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-      `;
-      slot.querySelector('.photo-slot__remove').addEventListener('click', () => {
-        S.existingImages    = S.existingImages.filter(u => u !== url);
-        S.removedImageUrls  = [...S.removedImageUrls, url];
-        renderExistingImages();
-      });
-      photoGrid.appendChild(slot);
-    });
-
-    // Add slot for new photos (if under limit)
-    const total = S.existingImages.length + S.newImageFiles.length;
-    if (total < MAX_PHOTOS) {
-      const addSlot = document.createElement('label');
-      addSlot.className = 'photo-slot photo-slot--add';
-      addSlot.setAttribute('aria-label', 'Add photo');
-      addSlot.innerHTML = `
-        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-        <span>Add photo</span>
-        <input type="file" accept="image/jpeg,image/png,image/webp"
-               class="photo-slot__input" multiple aria-hidden="true" />
-      `;
-      addSlot.querySelector('input').addEventListener('change', e => {
-        const files   = Array.from(e.target.files || []);
-        const allowed = MAX_PHOTOS - S.existingImages.length - S.newImageFiles.length;
-        const valid   = files.slice(0, allowed).filter(f => f.size <= 10 * 1024 * 1024);
-        S.newImageFiles = [...S.newImageFiles, ...valid];
-        renderExistingImages();
-        e.target.value = '';
-      });
-      photoGrid.appendChild(addSlot);
-    }
-     }
   /* ==========================================================
      INIT
   ========================================================== */
 
   async function init() {
+    // Load profile for preview seller info
     S.profile = await JARAProfile.load();
-    buildCategories();
-    buildPhotoGrid();
 
-    if (S.mode === 'edit' && S.listingId) {
+    // Build category dropdown
+    buildCategories();
+
+    if (IS_EDIT) {
+      // Edit mode — skip step 1, load existing listing into step 2
+      if (topbarTitle) topbarTitle.textContent = 'Edit Listing';
+      goToStep(2);
       await loadExistingListing();
     } else {
+      // Create mode — start on step 1, build empty photo grid
+      buildPhotoGrid();
       goToStep(1);
     }
   }
