@@ -857,23 +857,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   ========================================================== */
 
   async function init() {
-    // Load profile for preview seller info
-    S.profile = await JARAProfile.load();
+    // Wait for auth session before doing anything
+    // This ensures isOwner() has a valid session to check against
+    try {
+      const result = await JARAAuth.getCurrentUser();
+      if (!result) {
+        window.location.replace('../auth/login.html');
+        return;
+      }
+      S.profile = result.profile || await JARAProfile.load();
+    } catch (err) {
+      console.error('Sell init: auth error', err.message);
+      window.location.replace('../auth/login.html');
+      return;
+    }
 
-    // Build category dropdown
     buildCategories();
 
     if (IS_EDIT) {
-      // Edit mode — skip step 1, load existing listing into step 2
       if (topbarTitle) topbarTitle.textContent = 'Edit Listing';
       goToStep(2);
       await loadExistingListing();
     } else {
-      // Create mode — start on step 1, build empty photo grid
       buildPhotoGrid();
       goToStep(1);
     }
-  }
+    }
 
   init();
 
