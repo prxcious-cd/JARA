@@ -1566,6 +1566,8 @@ input, select, textarea { font-family: inherit; }
     transition-duration: 0.01ms !important;
   }
   }
+
+
 /* ============================================================
    SELL PAGE — Missing class additions for rebuilt sell system
 ============================================================ */
@@ -2102,3 +2104,4 @@ input, select, textarea { font-family: inherit; }
   justify-content: center;
   cursor: pointer;
    }
+}
