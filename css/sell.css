@@ -1566,3 +1566,539 @@ input, select, textarea { font-family: inherit; }
     transition-duration: 0.01ms !important;
   }
   }
+/* ============================================================
+   SELL PAGE — Missing class additions for rebuilt sell system
+============================================================ */
+
+/* Delete button */
+.sell-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.875rem;
+  margin-bottom: 0.875rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 14px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #FCA5A5;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+.sell-delete-btn:hover  { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.4); }
+.sell-delete-btn:active { background: rgba(239,68,68,0.2); }
+.sell-delete-btn[hidden] { display: none !important; }
+
+/* Alert banner */
+.sell-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 12px;
+  font-size: 0.875rem;
+  color: #FCA5A5;
+  line-height: 1.5;
+}
+.sell-alert[hidden] { display: none !important; }
+
+/* Field count */
+.sell-field__count {
+  font-size: 0.6875rem;
+  color: var(--text-3, #55556A);
+  text-align: right;
+  margin-top: 3px;
+}
+
+/* Field hint */
+.sell-field__hint {
+  font-size: 0.75rem;
+  color: var(--text-3, #55556A);
+  font-weight: 400;
+}
+
+/* Field status (location) */
+.sell-field__status {
+  font-size: 0.8125rem;
+  color: var(--text-2, #9090A8);
+  margin-top: 4px;
+}
+.sell-field__status[hidden] { display: none !important; }
+
+/* Select wrapper */
+.sell-field__select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.sell-field__select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--color-surface, #111118);
+  border: 1px solid var(--color-border, #2A2A3E);
+  border-radius: 12px;
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9375rem;
+  color: var(--color-text-primary, #F4F4F8);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 180ms ease;
+}
+.sell-field__select:focus { border-color: #7C3AED; }
+.sell-field__select-arrow {
+  position: absolute;
+  right: 1rem;
+  color: var(--text-3, #55556A);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+/* Nested field (price amount) */
+.sell-field--nested {
+  margin-top: 0.75rem;
+  padding-left: 0;
+}
+.sell-field--nested[hidden] { display: none !important; }
+
+/* Price chips */
+.price-chips,
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.price-chip,
+.status-chip {
+  padding: 7px 14px;
+  background: var(--color-surface, #111118);
+  border: 1px solid var(--color-border, #2A2A3E);
+  border-radius: 9999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-2, #9090A8);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.price-chip[aria-checked="true"],
+.status-chip[aria-checked="true"] {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: #7C3AED;
+  color: #A78BFA;
+}
+
+/* Location button */
+.sell-location-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+  padding: 6px 14px;
+  background: none;
+  border: 1px solid var(--color-border, #2A2A3E);
+  border-radius: 9999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-2, #9090A8);
+  cursor: pointer;
+  transition: border-color 150ms ease, color 150ms ease;
+}
+.sell-location-btn:hover { border-color: #7C3AED; color: #A78BFA; }
+
+/* Tags display */
+.sell-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 4px 10px;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  color: #A78BFA;
+}
+.tag-chip button {
+  background: none;
+  border: none;
+  color: #A78BFA;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Step subtitle */
+.sell-step__subtitle {
+  font-size: 0.9375rem;
+  color: var(--text-2, #9090A8);
+  margin-top: 0.25rem;
+  line-height: 1.5;
+}
+
+/* Sell field required marker */
+.sell-field__req {
+  color: #EF4444;
+  margin-left: 2px;
+}
+
+/* Step actions split layout */
+.sell-step__actions--split {
+  display: flex;
+  gap: 0.75rem;
+}
+.sell-step__actions--split .btn-ghost {
+  flex: 0 0 auto;
+}
+.sell-step__actions--split .btn-primary {
+  flex: 1;
+}
+
+/* Publish button variant */
+.btn-primary--publish {
+  background: linear-gradient(135deg, #7C3AED, #6D28D9);
+}
+
+/* Success/publishing states */
+.publishing-mark,
+.success-mark {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.publishing-mark__ring,
+.success-mark__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(124,58,237,0.2);
+  animation: ring-pulse 2s ease infinite;
+}
+.publishing-mark__ring--2,
+.success-mark__ring--2 {
+  animation-delay: 0.5s;
+  inset: -8px;
+}
+@keyframes ring-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50%       { opacity: 0.7; transform: scale(1.05); }
+}
+.publishing-mark__icon {
+  font-size: 2rem;
+  color: #7C3AED;
+  z-index: 1;
+}
+.success-mark__icon {
+  font-size: 2.5rem;
+  color: #10B981;
+  z-index: 1;
+}
+.publishing-title,
+.success-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #F4F4F8;
+  letter-spacing: -0.03em;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+.publishing-sub,
+.success-sub {
+  font-size: 0.9375rem;
+  color: #9090A8;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.success-jara-id {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(124,58,237,0.08);
+  border: 1px solid rgba(124,58,237,0.2);
+  border-radius: 14px;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1.5rem;
+}
+.success-jara-id__label {
+  font-size: 0.75rem;
+  color: #55556A;
+  flex-shrink: 0;
+}
+.success-jara-id__value {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #A78BFA;
+  flex: 1;
+}
+.success-jara-id__copy {
+  background: none;
+  border: none;
+  color: #9090A8;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  flex-shrink: 0;
+}
+.success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.btn-primary--full,
+.btn-ghost--full {
+  width: 100%;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.sell-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #FCA5A5;
+  margin-top: 0.75rem;
+}
+.sell-inline-error[hidden] { display: none !important; }
+.sell-inline-error--centered { justify-content: center; text-align: center; }
+
+/* Preview card */
+.preview-card {
+  background: var(--color-surface, #111118);
+  border: 1px solid var(--color-border, #2A2A3E);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+.preview-card__photos {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #1A1A2A;
+  overflow: hidden;
+}
+.preview-card__photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.preview-card__photo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #55556A;
+}
+.preview-card__badges {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0;
+}
+.preview-badge {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+.preview-badge--type   { background: rgba(124,58,237,0.15); color: #A78BFA; }
+.preview-badge--status { background: rgba(16,185,129,0.12); color: #6EE7B7; }
+.preview-card__content { padding: 0.75rem 1rem; }
+.preview-card__title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #F4F4F8;
+  margin-bottom: 0.375rem;
+}
+.preview-card__desc {
+  font-size: 0.875rem;
+  color: #9090A8;
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+}
+.preview-card__price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.preview-card__price {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #A78BFA;
+}
+.preview-card__location {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  color: #55556A;
+}
+.preview-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+.preview-tag {
+  font-size: 0.75rem;
+  color: #55556A;
+  background: #1A1A2A;
+  border-radius: 9999px;
+  padding: 2px 8px;
+}
+.preview-card__seller {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-top: 1px solid #1E1E2E;
+}
+.preview-card__seller-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #1A1A2A;
+  border: 1px solid #2A2A3E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #A78BFA;
+  flex-shrink: 0;
+}
+.preview-card__seller-info { flex: 1; min-width: 0; }
+.preview-card__seller-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #F4F4F8;
+}
+.preview-card__seller-type { font-size: 0.75rem; color: #55556A; }
+.preview-card__wa-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 7px 14px;
+  background: rgba(37,211,102,0.1);
+  border: 1px solid rgba(37,211,102,0.25);
+  border-radius: 9999px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #25D366;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.preview-card__share {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-top: 1px solid #1E1E2E;
+}
+.preview-card__share-label { font-size: 0.8125rem; color: #55556A; flex-shrink: 0; }
+.share-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #1A1A2A;
+  border: 1px solid #2A2A3E;
+  color: #9090A8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 150ms ease;
+}
+.share-btn:hover { background: #2A2A3E; color: #F4F4F8; }
+.preview-card__hint {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+  color: #55556A;
+  border-top: 1px solid #1E1E2E;
+}
+
+/* Photo grid */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.625rem;
+  margin-top: 0.5rem;
+}
+.photo-slot {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+.photo-slot--add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: #0E0E16;
+  border: 1.5px dashed #2A2A3E;
+  cursor: pointer;
+  font-size: 0.6875rem;
+  color: #55556A;
+  transition: border-color 150ms ease;
+}
+.photo-slot--add:hover { border-color: #7C3AED; color: #A78BFA; }
+.photo-slot--add i { font-size: 1.25rem; }
+.photo-slot__input { display: none; }
+.photo-slot--filled { background: #1A1A2A; }
+.photo-slot__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-slot__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  border: none;
+  color: #fff;
+  font-size: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+   }
