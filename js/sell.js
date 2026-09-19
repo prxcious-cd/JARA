@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tagsDisplay.innerHTML = '';
     S.tags.forEach((tag, i) => {
       const chip = document.createElement('span');
-      chip.className = 'tag-chip';
+      chip.className = 'tag-pill';
       chip.innerHTML = `${esc(tag)}<button type="button" aria-label="Remove ${esc(tag)}"><i class="fa-solid fa-xmark"></i></button>`;
       chip.querySelector('button').addEventListener('click', () => {
         S.tags.splice(i, 1);
