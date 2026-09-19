@@ -35,9 +35,7 @@
             aria-label="Go back" hidden>
       <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
     </button>
-
     <h1 class="sell-topbar__title" id="topbarTitle">Create</h1>
-
     <span class="sell-topbar__step-badge" id="topbarStepBadge" hidden>
       <span id="topbarStepText">Step 1 of 4</span>
     </span>
@@ -45,7 +43,9 @@
 
   <!-- Progress bar -->
   <div class="sell-progress" id="sellProgress" hidden aria-hidden="true">
-    <div class="sell-progress__fill" id="progressFill" style="width:0%"></div>
+    <div class="sell-progress__track">
+      <div class="sell-progress__fill" id="progressFill" style="width:0%"></div>
+    </div>
   </div>
 
   <!-- ==============================
@@ -60,20 +60,22 @@
              aria-label="Choose listing type">
       <div class="sell-step__inner">
 
-        <div class="sell-step__header">
+        <div class="sell-step__heading">
           <p class="sell-step__eyebrow">LET'S GET STARTED</p>
           <h2 class="sell-step__title">What would you like<br />to create today?</h2>
         </div>
 
-        <!-- Type cards -->
         <div class="type-grid" role="radiogroup" aria-label="Listing type">
 
           <button class="type-card" role="radio" aria-checked="false"
                   data-type="product" id="typeProduct" type="button">
+            <div class="type-card__glow" aria-hidden="true"></div>
             <span class="type-card__icon" aria-hidden="true">📦</span>
-            <strong class="type-card__name">Product</strong>
-            <span class="type-card__desc">Sell a physical item.</span>
-            <span class="type-card__examples">Generator · Books · Shoes · Food · Laptop</span>
+            <div class="type-card__body">
+              <strong class="type-card__name">Product</strong>
+              <span class="type-card__desc">Sell a physical item.</span>
+              <span class="type-card__examples">Generator · Books · Shoes · Food · Laptop</span>
+            </div>
             <span class="type-card__check" aria-hidden="true">
               <i class="fa-solid fa-check"></i>
             </span>
@@ -81,10 +83,13 @@
 
           <button class="type-card" role="radio" aria-checked="false"
                   data-type="service" id="typeService" type="button">
+            <div class="type-card__glow" aria-hidden="true"></div>
             <span class="type-card__icon" aria-hidden="true">🛠️</span>
-            <strong class="type-card__name">Service</strong>
-            <span class="type-card__desc">Offer your skills.</span>
-            <span class="type-card__examples">Printing · Laundry · Tutor · Haircut · Design</span>
+            <div class="type-card__body">
+              <strong class="type-card__name">Service</strong>
+              <span class="type-card__desc">Offer your skills.</span>
+              <span class="type-card__examples">Printing · Laundry · Tutor · Haircut · Design</span>
+            </div>
             <span class="type-card__check" aria-hidden="true">
               <i class="fa-solid fa-check"></i>
             </span>
@@ -92,10 +97,13 @@
 
           <button class="type-card" role="radio" aria-checked="false"
                   data-type="request" id="typeRequest" type="button">
+            <div class="type-card__glow" aria-hidden="true"></div>
             <span class="type-card__icon" aria-hidden="true">📢</span>
-            <strong class="type-card__name">Request</strong>
-            <span class="type-card__desc">Ask the community for something you need.</span>
-            <span class="type-card__examples">Need generator · Need tutor · Need cake · Need transport</span>
+            <div class="type-card__body">
+              <strong class="type-card__name">Request</strong>
+              <span class="type-card__desc">Ask the community for something you need.</span>
+              <span class="type-card__examples">Need generator · Need tutor · Need cake · Need transport</span>
+            </div>
             <span class="type-card__check" aria-hidden="true">
               <i class="fa-solid fa-check"></i>
             </span>
@@ -126,7 +134,7 @@
              aria-label="Listing details" hidden>
       <div class="sell-step__inner">
 
-        <div class="sell-step__header">
+        <div class="sell-step__heading">
           <p class="sell-step__eyebrow" id="step2Eyebrow">Product details</p>
           <h2 class="sell-step__title">Tell us about it</h2>
           <p class="sell-step__subtitle" id="step2Subtitle">
@@ -141,80 +149,98 @@
         </div>
 
         <!-- Title -->
-        <div class="sell-field">
-          <label class="sell-field__label" for="postTitle">
-            Title <span class="sell-field__req">*</span>
+        <div class="field">
+          <label class="field__label" for="postTitle">
+            Title <span class="field__required">*</span>
           </label>
-          <input class="sell-field__input" type="text" id="postTitle"
-                 placeholder="e.g. iPhone 13 Pro Max — Excellent Condition"
-                 maxlength="120" autocomplete="off" />
-          <p class="sell-field__count"><span id="titleCharCount">0</span> / 120</p>
+          <div class="field__meta-row">
+            <span></span>
+            <span class="field__char-count" id="titleCharCount">0 / 120</span>
+          </div>
+          <div class="field__input-wrap">
+            <input class="field__input" type="text" id="postTitle"
+                   placeholder="e.g. iPhone 13 Pro Max — Excellent Condition"
+                   maxlength="120" autocomplete="off" />
+          </div>
         </div>
 
         <!-- Category -->
-        <div class="sell-field">
-          <label class="sell-field__label" for="postCategory">
-            Category <span class="sell-field__req">*</span>
+        <div class="field">
+          <label class="field__label" for="postCategory">
+            Category <span class="field__required">*</span>
           </label>
-          <div class="sell-field__select-wrap">
-            <select class="sell-field__select" id="postCategory">
+          <div class="field__input-wrap field__input-wrap--select">
+            <select class="field__input field__select" id="postCategory">
               <option value="" disabled selected>Select a category</option>
             </select>
-            <i class="fa-solid fa-chevron-down sell-field__select-arrow"
-               aria-hidden="true"></i>
+            <i class="field__select-arrow fa-solid fa-chevron-down" aria-hidden="true"></i>
           </div>
         </div>
 
         <!-- Description -->
-        <div class="sell-field">
-          <label class="sell-field__label" for="postDescription">
-            Description <span class="sell-field__req">*</span>
+        <div class="field">
+          <label class="field__label" for="postDescription">
+            Description <span class="field__required">*</span>
           </label>
-          <textarea class="sell-field__textarea" id="postDescription"
+          <div class="field__meta-row">
+            <span></span>
+            <span class="field__char-count" id="descriptionCharCount">0 / 2000</span>
+          </div>
+          <textarea class="field__input field__textarea" id="postDescription"
                     placeholder="Describe your listing — condition, what's included, any notes…"
                     rows="4" maxlength="2000"></textarea>
-          <p class="sell-field__count"><span id="descriptionCharCount">0</span> / 2000</p>
         </div>
 
         <!-- Tags -->
-        <div class="sell-field">
-          <label class="sell-field__label" for="tagInput">
-            Tags <span class="sell-field__hint">(optional — press Enter or comma)</span>
+        <div class="field">
+          <label class="field__label" for="tagInput">
+            Tags
+            <span class="field__hint">(optional — press Enter or comma)</span>
           </label>
-          <input class="sell-field__input" type="text" id="tagInput"
-                 placeholder="e.g. vintage, leather, handmade" autocomplete="off" />
-          <div class="sell-tags" id="tagsDisplay" aria-label="Added tags"></div>
+          <div class="field__input-wrap">
+            <input class="field__input" type="text" id="tagInput"
+                   placeholder="e.g. vintage, leather, handmade" autocomplete="off" />
+          </div>
+          <div class="tags-display" id="tagsDisplay" aria-label="Added tags"></div>
         </div>
 
         <!-- Photos -->
-        <div class="sell-field">
-          <label class="sell-field__label">
-            Photos <span class="sell-field__hint">(up to 5, max 10 MB each)</span>
+        <div class="field">
+          <label class="field__label">
+            Photos
+            <span class="field__hint">(up to 5, max 10 MB each)</span>
           </label>
           <div class="photo-grid" id="photoGrid" aria-label="Listing photos"></div>
         </div>
 
         <!-- Location -->
-        <div class="sell-field">
-          <label class="sell-field__label" for="locationManual">
-            Location <span class="sell-field__hint">(optional)</span>
+        <div class="field">
+          <label class="field__label" for="locationManual">
+            Location <span class="field__hint">(optional)</span>
           </label>
-          <input class="sell-field__input" type="text" id="locationManual"
-                 placeholder="e.g. Block C, SUB, Redeemer's University"
-                 autocomplete="off" />
-          <button class="sell-location-btn" id="useLocationBtn" type="button">
-            <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
-            Use my location
-          </button>
-          <p class="sell-field__status" id="locationStatus" hidden></p>
+          <div class="location-options">
+            <div class="location-options__manual">
+              <div class="field__input-wrap">
+                <input class="field__input" type="text" id="locationManual"
+                       placeholder="e.g. Block C, SUB, Redeemer's University"
+                       autocomplete="off" />
+              </div>
+            </div>
+            <div class="location-options__or" aria-hidden="true">or</div>
+            <button class="location-btn" id="useLocationBtn" type="button">
+              <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+              Use my location
+            </button>
+          </div>
+          <p class="location-status" id="locationStatus" hidden></p>
         </div>
 
         <!-- Price type -->
-        <div class="sell-field">
-          <label class="sell-field__label">
-            Price <span class="sell-field__req">*</span>
+        <div class="field">
+          <label class="field__label">
+            Price <span class="field__required">*</span>
           </label>
-          <div class="price-chips" id="priceTypeGroup" role="group"
+          <div class="price-type-grid" id="priceTypeGroup" role="group"
                aria-label="Price type">
             <button class="price-chip" data-price="fixed"
                     aria-checked="false" type="button">Fixed Price</button>
@@ -227,26 +253,29 @@
             <button class="price-chip" data-price="quote"
                     aria-checked="false" type="button">Request a Quote</button>
           </div>
-          <div class="sell-field sell-field--nested" id="priceAmountWrap" hidden>
-            <label class="sell-field__label" for="priceAmount">Amount (₦)</label>
-            <input class="sell-field__input" type="number" id="priceAmount"
-                   placeholder="e.g. 5000" min="0" inputmode="numeric" />
+          <div class="price-amount-wrap" id="priceAmountWrap" hidden>
+            <div class="field__input-wrap">
+              <span class="field__prefix" aria-hidden="true">₦</span>
+              <input class="field__input field__input--prefixed" type="number"
+                     id="priceAmount" placeholder="e.g. 5000"
+                     min="0" inputmode="numeric" />
+            </div>
           </div>
         </div>
 
         <!-- Availability -->
-        <div class="sell-field">
-          <label class="sell-field__label">Availability</label>
-          <div class="status-chips" id="statusGroup" role="group"
+        <div class="field">
+          <label class="field__label">Availability</label>
+          <div class="status-grid" id="statusGroup" role="group"
                aria-label="Availability">
-            <button class="status-chip" data-status="available"
-                    aria-checked="true" type="button">Available</button>
-            <button class="status-chip" data-status="busy"
-                    aria-checked="false" type="button">Busy</button>
-            <button class="status-chip" data-status="out_of_stock"
-                    aria-checked="false" type="button">Out of Stock</button>
-            <button class="status-chip" data-status="coming_soon"
-                    aria-checked="false" type="button">Coming Soon</button>
+            <button class="status-chip status-chip--available"
+                    data-status="available" aria-checked="true" type="button">Available</button>
+            <button class="status-chip status-chip--busy"
+                    data-status="busy" aria-checked="false" type="button">Busy</button>
+            <button class="status-chip status-chip--out"
+                    data-status="out_of_stock" aria-checked="false" type="button">Out of Stock</button>
+            <button class="status-chip status-chip--soon"
+                    data-status="coming_soon" aria-checked="false" type="button">Coming Soon</button>
           </div>
         </div>
 
@@ -279,27 +308,23 @@
              aria-label="Preview your listing" hidden>
       <div class="sell-step__inner">
 
-        <!-- Preview card -->
         <div class="preview-card" id="previewCard">
 
-          <!-- Photo area -->
           <div class="preview-card__photos" id="previewPhotos">
             <div class="preview-card__photo-placeholder" aria-hidden="true">
               <i class="fa-solid fa-image"></i>
             </div>
           </div>
 
-          <!-- Badges -->
-          <div class="preview-card__badges">
+          <div class="preview-card__badges" id="previewBadges">
             <span class="preview-badge preview-badge--type" id="previewTypeBadge">Product</span>
             <span class="preview-badge preview-badge--status" id="previewStatusBadge">Available</span>
           </div>
 
-          <!-- Content -->
-          <div class="preview-card__content">
+          <div class="preview-card__body">
             <h2 class="preview-card__title" id="previewTitle">Your title</h2>
-            <p class="preview-card__desc" id="previewDescription">Your description</p>
-            <div class="preview-card__price-row">
+            <p class="preview-card__description" id="previewDescription">Your description</p>
+            <div class="preview-card__meta">
               <p class="preview-card__price" id="previewPrice">—</p>
               <p class="preview-card__location">
                 <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
@@ -309,55 +334,54 @@
             <div class="preview-card__tags" id="previewTags" hidden></div>
           </div>
 
-          <!-- Seller info -->
           <div class="preview-card__seller">
-            <div class="preview-card__seller-avatar" id="previewAvatar">PR</div>
+            <div class="preview-card__avatar" id="previewAvatar">PR</div>
             <div class="preview-card__seller-info">
-              <p class="preview-card__seller-name" id="previewSellerName">You</p>
-              <p class="preview-card__seller-type" id="previewSellerType">Member</p>
+              <strong id="previewSellerName">You</strong>
+              <span id="previewSellerType">Member</span>
             </div>
-            <a class="preview-card__wa-btn" id="previewWhatsapp" href="#"
+            <a class="preview-card__whatsapp" id="previewWhatsapp" href="#"
                aria-label="Contact on WhatsApp">
               <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
               Contact
             </a>
           </div>
 
-          <!-- Share row -->
           <div class="preview-card__share" id="shareBtns">
-            <p class="preview-card__share-label">Share via</p>
-            <button class="share-btn" data-platform="whatsapp" type="button"
-                    aria-label="Share on WhatsApp">
-              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
-            </button>
-            <button class="share-btn" data-platform="instagram" type="button"
-                    aria-label="Share on Instagram">
-              <i class="fa-brands fa-instagram" aria-hidden="true"></i>
-            </button>
-            <button class="share-btn" data-platform="facebook" type="button"
-                    aria-label="Share on Facebook">
-              <i class="fa-brands fa-facebook" aria-hidden="true"></i>
-            </button>
-            <button class="share-btn" data-platform="copy" type="button"
-                    aria-label="Copy link">
-              <i class="fa-solid fa-link" aria-hidden="true"></i>
-            </button>
+            <span class="preview-card__share-label">Share via</span>
+            <div class="share-btns">
+              <button class="share-btn share-btn--whatsapp" data-platform="whatsapp"
+                      type="button" aria-label="Share on WhatsApp">
+                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+              </button>
+              <button class="share-btn share-btn--instagram" data-platform="instagram"
+                      type="button" aria-label="Share on Instagram">
+                <i class="fa-brands fa-instagram" aria-hidden="true"></i>
+              </button>
+              <button class="share-btn share-btn--facebook" data-platform="facebook"
+                      type="button" aria-label="Share on Facebook">
+                <i class="fa-brands fa-facebook" aria-hidden="true"></i>
+              </button>
+              <button class="share-btn share-btn--copy" data-platform="copy"
+                      type="button" aria-label="Copy link">
+                <i class="fa-solid fa-link" aria-hidden="true"></i>
+              </button>
+            </div>
           </div>
 
-          <p class="preview-card__hint">
+          <p class="preview-note">
             <i class="fa-solid fa-pen" aria-hidden="true"></i>
             Not happy? Go back and edit anything.
           </p>
 
-        </div><!-- /previewCard -->
+        </div>
 
-        <!-- Navigation -->
         <div class="sell-step__actions sell-step__actions--split">
           <button class="btn-ghost" id="step3Back" type="button">
             <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
             Edit
           </button>
-          <button class="btn-primary btn-primary--publish" id="step3Next" type="button">
+          <button class="btn-primary" id="step3Next" type="button">
             Publish <i class="fa-solid fa-bolt" aria-hidden="true"></i>
           </button>
         </div>
@@ -375,30 +399,31 @@
 
         <!-- Publishing animation -->
         <div id="publishingState">
-          <div class="publishing-mark" aria-hidden="true">
-            <div class="publishing-mark__ring publishing-mark__ring--1"></div>
-            <div class="publishing-mark__ring publishing-mark__ring--2"></div>
-            <i class="fa-solid fa-circle-notch fa-spin publishing-mark__icon"></i>
+          <div class="publish-anim" aria-hidden="true">
+            <div class="publish-anim__ring publish-anim__ring--1"></div>
+            <div class="publish-anim__ring publish-anim__ring--2"></div>
+            <i class="fa-solid fa-circle-notch fa-spin publish-anim__icon"
+               aria-hidden="true"></i>
           </div>
-          <h2 class="publishing-title">Publishing your listing…</h2>
-          <p class="publishing-sub">Uploading photos and saving your details.</p>
+          <h2 class="publish-title">Publishing your listing…</h2>
+          <p class="publish-subtitle">Uploading photos and saving your details.</p>
         </div>
 
         <!-- Success state -->
         <div id="successState" hidden>
-          <div class="success-mark" aria-hidden="true">
-            <div class="success-mark__ring success-mark__ring--1"></div>
-            <div class="success-mark__ring success-mark__ring--2"></div>
-            <i class="fa-solid fa-circle-check success-mark__icon"></i>
+          <div class="success-anim" aria-hidden="true">
+            <div class="success-anim__ring success-anim__ring--1"></div>
+            <div class="success-anim__ring success-anim__ring--2"></div>
+            <i class="fa-solid fa-circle-check success-anim__icon" aria-hidden="true"></i>
           </div>
 
           <h2 class="success-title">You're Live! 🎉</h2>
-          <p class="success-sub">Your listing is now visible to the JARA community.</p>
+          <p class="success-subtitle">Your listing is now visible to the JARA community.</p>
 
-          <div class="success-jara-id">
-            <p class="success-jara-id__label">Your JARA ID</p>
-            <p class="success-jara-id__value" id="jaraIdDisplay">—</p>
-            <button class="success-jara-id__copy" id="copyJaraId" type="button"
+          <div class="jara-id-badge">
+            <span class="jara-id-badge__label">Your JARA ID</span>
+            <strong class="jara-id-badge__value" id="jaraIdDisplay">—</strong>
+            <button class="jara-id-badge__copy" id="copyJaraId" type="button"
                     aria-label="Copy JARA ID">
               <i class="fa-regular fa-copy" aria-hidden="true"></i>
             </button>
@@ -415,7 +440,6 @@
             </button>
           </div>
 
-          <!-- Error state inside success panel -->
           <p class="sell-inline-error sell-inline-error--centered" id="publishError" hidden>
             <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
             <span id="publishErrorText"></span>
@@ -425,7 +449,7 @@
       </div>
     </section>
 
-  </main><!-- /sell-stage -->
+  </main>
 
   <!-- ==============================
        BOTTOM NAVIGATION
@@ -448,7 +472,7 @@
       <span>Create</span>
     </a>
     <a href="../activity/index.html" class="bottom-nav__item" aria-label="Activity">
-      <i class="fa-solid fa-bell" aria-hidden="true"></i>
+ <i class="fa-solid fa-bell" aria-hidden="true"></i>
       <span>Activity</span>
     </a>
     <a href="../profile/index.html" class="bottom-nav__item" aria-label="My profile">
@@ -469,4 +493,4 @@
   </script>
 
 </body>
-  </html>
+</html>
